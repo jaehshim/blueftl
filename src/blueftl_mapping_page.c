@@ -32,7 +32,7 @@ struct ftl_base_t ftl_base_page_mapping = {
 	.ftl_get_free_physical_page_address = page_mapping_get_free_physical_page_address,
 	.ftl_map_logical_to_physical = page_mapping_map_logical_to_physical,
 	.ftl_trigger_gc = NULL,
-	.ftl_trigger_merge = gc_page_trigger_merge,
+	.ftl_trigger_merge = gc_block_trigger_merge,
 	.ftl_trigger_wear_leveler = NULL,
 };
 
@@ -44,7 +44,7 @@ struct ftl_context_t* page_mapping_create_ftl_context (
 
 	struct ftl_context_t* ptr_ftl_context = NULL;
 	struct flash_ssd_t* ptr_ssd = NULL;
-	struct ftl_page_mapping_context_t* ptr_blk_mapping = NULL;
+	struct ftl_page_mapping_context_t* ptr_pg_mapping = NULL;
 
 	/* create the ftl context */
 	/*if ((ptr_ftl_context = (struct ftl_context_t*)kmalloc (sizeof (struct ftl_context_t), GFP_ATOMIC)) == NULL) {*/
@@ -70,21 +70,21 @@ struct ftl_context_t* page_mapping_create_ftl_context (
 	ptr_ftl_context->ptr_vdevice = ptr_vdevice;
 
 	ptr_ssd = ptr_ftl_context->ptr_ssd;
-	ptr_blk_mapping = (struct ftl_page_mapping_context_t *)ptr_ftl_context->ptr_mapping;
+	ptr_pg_mapping = (struct ftl_page_mapping_context_t *)ptr_ftl_context->ptr_mapping;
 
 	/* TODO: implement page-level FTL */
 
 	ptr_pg_mapping->nr_pg_table_entries = 
 		ptr_ssd->nr_buses * ptr_ssd->nr_chips_per_bus * ptr_ssd->nr_blocks_per_chip * ptr_ssd->nr_pages_per_block;
 
-	/*if ((ptr_blk_mapping->ptr_blk_table = (uint32_t*)kmalloc (ptr_blk_mapping->nr_blk_table_entries * sizeof (uint32_t), GFP_ATOMIC)) == NULL) {*/
-	if ((ptr_blk_mapping->ptr_blk_table = (uint32_t*)malloc (ptr_blk_mapping->nr_blk_table_entries * sizeof (uint32_t))) == NULL) {
+	/*if ((ptr_pg_mapping->ptr_pg_table = (uint32_t*)kmalloc (ptr_pg_mapping->nr_pg_table_entries * sizeof (uint32_t), GFP_ATOMIC)) == NULL) {*/
+	if ((ptr_pg_mapping->ptr_pg_table = (uint32_t*)malloc (ptr_pg_mapping->nr_pg_table_entries * sizeof (uint32_t))) == NULL) {
 		printf ("blueftl_mapping_page: failed to allocate the memory for ptr_mapping_table\n");
 		goto error_alloc_mapping_table;
 	}
 
-	for (init_blk_loop = 0; init_blk_loop < ptr_blk_mapping->nr_blk_table_entries; init_blk_loop++) {
-		ptr_blk_mapping->ptr_blk_table[init_blk_loop] = PAGE_TABLE_FREE;
+	for (init_pg_loop = 0; init_pg_loop < ptr_pg_mapping->nr_pg_table_entries; init_pg_loop++) {
+		ptr_pg_mapping->ptr_pg_table[init_pg_loop] = PAGE_TABLE_FREE;
 	}
 
 	/* TODO: end */
@@ -111,19 +111,19 @@ error_alloc_ftl_context:
 void page_mapping_destroy_ftl_context (struct ftl_context_t* ptr_ftl_context)
 {
 	struct flash_ssd_t* ptr_ssd = ptr_ftl_context->ptr_ssd;
-	struct ftl_page_mapping_context_t* ptr_blk_mapping = (struct ftl_page_mapping_context_t*)ptr_ftl_context->ptr_mapping;
+	struct ftl_page_mapping_context_t* ptr_pg_mapping = (struct ftl_page_mapping_context_t*)ptr_ftl_context->ptr_mapping;
 
 	/* TODO: implement page-level FTL */
-	if (ptr_blk_mapping->ptr_blk_table != NULL) {
-		/*kfree (ptr_blk_mapping->ptr_blk_table);*/
-		free (ptr_blk_mapping->ptr_blk_table);
+	if (ptr_pg_mapping->ptr_pg_table != NULL) {
+		/*kfree (ptr_pg_mapping->ptr_pg_table);*/
+		free (ptr_pg_mapping->ptr_pg_table);
 	}
 	/* TODO: end */
 
 	/* destroy the page mapping context */
-	if (ptr_blk_mapping != NULL)
-		/*kfree (ptr_blk_mapping);*/
-		free (ptr_blk_mapping);
+	if (ptr_pg_mapping != NULL)
+		/*kfree (ptr_pg_mapping);*/
+		free (ptr_pg_mapping);
 
 	/* destroy the ssd context */
 	ssdmgmt_destroy_ssd (ptr_ssd);
@@ -144,7 +144,7 @@ int32_t page_mapping_get_mapped_physical_page_address (
 	uint32_t *ptr_page)
 {	
 	struct flash_ssd_t* ptr_ssd = ptr_ftl_context->ptr_ssd;
-	struct ftl_page_mapping_context_t* ptr_blk_mapping = (struct ftl_page_mapping_context_t*)ptr_ftl_context->ptr_mapping;
+	struct ftl_page_mapping_context_t* ptr_pg_mapping = (struct ftl_page_mapping_context_t*)ptr_ftl_context->ptr_mapping;
 
 	uint32_t logical_page_address;
 	uint32_t physical_page_address;
@@ -157,7 +157,7 @@ int32_t page_mapping_get_mapped_physical_page_address (
 	page_offset = logical_page_address % ptr_ssd->nr_pages_per_block;
 
 	/* obtain the physical page address using the page mapping table */
-	physical_page_address = ptr_blk_mapping->ptr_blk_table[logical_page_address];
+	physical_page_address = ptr_pg_mapping->ptr_pg_table[logical_page_address];
 
 	if (physical_page_address == PAGE_TABLE_FREE) {
 		/* the requested logical page is not mapped to any physical page */
@@ -194,7 +194,7 @@ int32_t page_mapping_get_free_physical_page_address (
 {
 	struct flash_block_t* ptr_erase_block;
 	struct flash_ssd_t* ptr_ssd = ptr_ftl_context->ptr_ssd;
-	struct ftl_page_mapping_context_t* ptr_blk_mapping = (struct ftl_page_mapping_context_t*)ptr_ftl_context->ptr_mapping;
+	struct ftl_page_mapping_context_t* ptr_pg_mapping = (struct ftl_page_mapping_context_t*)ptr_ftl_context->ptr_mapping;
 
 	uint32_t logical_page_address;
 	uint32_t physical_page_address;
@@ -205,7 +205,7 @@ int32_t page_mapping_get_free_physical_page_address (
 	page_offset = logical_page_address % ptr_ssd->nr_pages_per_block;
 
 	/* obtain the physical page address using the page mapping table */
-	physical_page_address = ptr_blk_mapping->ptr_blk_table[logical_page_address];
+	physical_page_address = ptr_pg_mapping->ptr_pg_table[logical_page_address];
 
 	if (physical_page_address != PAGE_TABLE_FREE) {
 		/* encoding the ssd layout to a phyical page address 
@@ -251,7 +251,7 @@ need_gc:
 }
 
 /* map a logical page address to a physical page address */
-int32_t block_mapping_map_logical_to_physical (
+int32_t page_mapping_map_logical_to_physical (
 	struct ftl_context_t* ptr_ftl_context, 
 	uint32_t logical_page_address, 
 	uint32_t bus,
@@ -261,35 +261,35 @@ int32_t block_mapping_map_logical_to_physical (
 {
 	struct flash_block_t* ptr_erase_block;
 	struct flash_ssd_t* ptr_ssd = ptr_ftl_context->ptr_ssd;
-	struct ftl_block_mapping_context_t* ptr_blk_mapping = (struct ftl_block_mapping_context_t*)ptr_ftl_context->ptr_mapping;
+	struct ftl_page_mapping_context_t* ptr_pg_mapping = (struct ftl_page_mapping_context_t*)ptr_ftl_context->ptr_mapping;
 
-	uint32_t logical_block_address;
-	uint32_t physical_block_address;
+	uint32_t logical_page_address;
+	uint32_t physical_page_address;
 	uint32_t page_offset;
 
 	int32_t ret = -1;
 
-	/* get the logical block number and the page offset */
-	logical_block_address = logical_page_address / ptr_ssd->nr_pages_per_block;
+	/* get the logical page number and the page offset */
+	//logical_block_address = logical_page_address / ptr_ssd->nr_pages_per_block;
 	page_offset = logical_page_address % ptr_ssd->nr_pages_per_block;
 
-	/* get the physical block address using the block mapping table */
-	physical_block_address = ptr_blk_mapping->ptr_blk_table[logical_block_address];
+	/* get the physical page address using the page mapping table */
+	physical_page_address = ptr_pg_mapping->ptr_pg_table[logical_page_address];
 
 	if (page_offset != page) {
 		/* the page offset of the logical page address must be the same as the page address */
-		printf ("blueftl_mapping_block: there is something wrong with block mapping (%u != %u)\n", page_offset, page);
+		printf ("blueftl_mapping_page: there is something wrong with page mapping (%u != %u)\n", page_offset, page);
 		return -1;
 	}
 
-	/* see if the given logical block is alreay mapped or not */
-	if (physical_block_address == BLOCK_TABLE_FREE) {
-		/* encoding the ssd layout to a phyical block address 
-		   NOTE: the address of the page must be 0 in the block-level mapping */
-		physical_block_address = ftl_convert_to_physical_page_address (bus, chip, block, 0);
+	/* see if the given logical page is alreay mapped or not */
+	if (physical_page_address == PAGE_TABLE_FREE) {
+		/* encoding the ssd layout to a phyical page address 
+		   NOTE: the address of the page must be 0 in the page-level mapping */
+		physical_page_address = ftl_convert_to_physical_page_address (bus, chip, block, page);
 
-		/* update the block mapping table */
-		ptr_blk_mapping->ptr_blk_table[logical_block_address] = physical_block_address;
+		/* update the page mapping table */
+		ptr_pg_mapping->ptr_pg_table[logical_page_address] = physical_page_address;
 	} 
 
 	/* see if the given page is already written or not */
