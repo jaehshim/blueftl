@@ -60,12 +60,12 @@ struct ftl_base_t {
 		uint32_t block, 
 		uint32_t page);
 
-	int32_t (*ftl_trigger_gc) (
+	int32_t (*ftl_trigger_gc) ( // gc가 수행을 요청함, gc가 수행된 버스와 칩 번호 알려줌
 		struct ftl_context_t* ptr_ftl_context, 
 		int32_t gc_target_bus, 
 		int32_t gc_target_chip);
 
-	int32_t (*ftl_trigger_merge) (
+	int32_t (*ftl_trigger_merge) ( // 대상이 되는 버스와 칩, 블록번호를 알려줌
 		struct ftl_context_t* ptr_ftl_context, 
 		uint32_t logical_page_address, 
 		uint8_t* ptr_lba_buffer, 
@@ -76,14 +76,14 @@ struct ftl_base_t {
 	void (*ftl_trigger_wear_leveler) (void);
 };
 
-void ftl_convert_to_ssd_layout (
+void ftl_convert_to_ssd_layout ( // 물리주소를 flash의 물리적 위치로 변환
 	uint32_t physical_page_address, 
 	uint32_t* ptr_bus,
 	uint32_t* ptr_chip,
 	uint32_t* ptr_block,
 	uint32_t* ptr_page);
 
-uint32_t ftl_convert_to_physical_page_address (
+uint32_t ftl_convert_to_physical_page_address ( // flash의 울리적 위치를 물리 주소로 변환
 	uint32_t bus,
 	uint32_t chip, 
 	uint32_t block,

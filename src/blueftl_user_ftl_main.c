@@ -7,9 +7,9 @@
 #include "blueftl_user_vdevice.h"
 #include "blueftl_util.h"
 #include "blueftl_ftl_base.h"
-#include "blueftl_mapping_block.h"
 #include "blueftl_char.h"
-
+#include "blueftl_mapping_block.h" // block mapping header
+//#include "blueftl_mapping_page.h" // page mapping header
 
 struct ftl_base_t _ftl_base;
 struct ftl_context_t* _ptr_ftl_context = NULL;
@@ -24,7 +24,8 @@ int32_t blueftl_user_ftl_create (struct ssd_params_t* ptr_ssd_params)
 	}
 
 	/* map the block mapping functions to _ftl_base */
-	_ftl_base = ftl_base_block_mapping;
+	_ftl_base = ftl_base_block_mapping; // block level mapping
+//	_ftl_base = ftl_base_page_mapping; // page level mapping
 
 	/* initialize the user-level FTL */
 	if ((_ptr_ftl_context = _ftl_base.ftl_create_ftl_context (_ptr_vdevice)) == NULL) {

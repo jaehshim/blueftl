@@ -37,6 +37,7 @@ struct ftl_base_t ftl_base_page_mapping = {
 };
 
 /* create the page mapping table */
+/* 초기값들 모두 할당 및 설정, block table 할당, 초기화 작업 */
 struct ftl_context_t* page_mapping_create_ftl_context (
 	struct virtual_device_t* ptr_vdevice)
 {
@@ -47,7 +48,6 @@ struct ftl_context_t* page_mapping_create_ftl_context (
 	struct ftl_page_mapping_context_t* ptr_pg_mapping = NULL;
 
 	/* create the ftl context */
-	/*if ((ptr_ftl_context = (struct ftl_context_t*)kmalloc (sizeof (struct ftl_context_t), GFP_ATOMIC)) == NULL) {*/
 	if ((ptr_ftl_context = (struct ftl_context_t*)malloc (sizeof (struct ftl_context_t))) == NULL) {
 		printf ("blueftl_mapping_page: the creation of the ftl context failed\n");
 		goto error_alloc_ftl_context;
@@ -60,7 +60,7 @@ struct ftl_context_t* page_mapping_create_ftl_context (
 	}
 
 	/* create the page mapping context */
-	/*if ((ptr_ftl_context->ptr_mapping = (struct ftl_page_mapping_context_t *)kmalloc (sizeof (struct ftl_page_mapping_context_t), GFP_ATOMIC)) == NULL) {*/
+	/* ptr_mapping = {nr_pg_table_entries, ptr_pg_table} */
 	if ((ptr_ftl_context->ptr_mapping = (struct ftl_page_mapping_context_t *)malloc (sizeof (struct ftl_page_mapping_context_t))) == NULL) {
 		printf ("blueftl_mapping_page: the creation of the ftl context failed\n");
 		goto error_alloc_ftl_page_mapping_context;
@@ -77,12 +77,13 @@ struct ftl_context_t* page_mapping_create_ftl_context (
 	ptr_pg_mapping->nr_pg_table_entries = 
 		ptr_ssd->nr_buses * ptr_ssd->nr_chips_per_bus * ptr_ssd->nr_blocks_per_chip * ptr_ssd->nr_pages_per_block;
 
-	/*if ((ptr_pg_mapping->ptr_pg_table = (uint32_t*)kmalloc (ptr_pg_mapping->nr_pg_table_entries * sizeof (uint32_t), GFP_ATOMIC)) == NULL) {*/
+	/* allocate ptr_blk_table -> entry 개수만큼 */
 	if ((ptr_pg_mapping->ptr_pg_table = (uint32_t*)malloc (ptr_pg_mapping->nr_pg_table_entries * sizeof (uint32_t))) == NULL) {
 		printf ("blueftl_mapping_page: failed to allocate the memory for ptr_mapping_table\n");
 		goto error_alloc_mapping_table;
 	}
 
+	/* 할당된 ptr_blk_table 모두 free 설정 */
 	for (init_pg_loop = 0; init_pg_loop < ptr_pg_mapping->nr_pg_table_entries; init_pg_loop++) {
 		ptr_pg_mapping->ptr_pg_table[init_pg_loop] = PAGE_TABLE_FREE;
 	}
@@ -93,14 +94,12 @@ struct ftl_context_t* page_mapping_create_ftl_context (
 
 
 error_alloc_mapping_table:
-	/*kfree (ptr_ftl_context->ptr_mapping);*/
 	free (ptr_ftl_context->ptr_mapping);
 
 error_alloc_ftl_page_mapping_context:
 	ssdmgmt_destroy_ssd (ptr_ssd);
 
 error_create_ssd_context:
-	/*kfree (ptr_ftl_context);*/
 	free (ptr_ftl_context);
 
 error_alloc_ftl_context:
@@ -114,15 +113,12 @@ void page_mapping_destroy_ftl_context (struct ftl_context_t* ptr_ftl_context)
 	struct ftl_page_mapping_context_t* ptr_pg_mapping = (struct ftl_page_mapping_context_t*)ptr_ftl_context->ptr_mapping;
 
 	/* TODO: implement page-level FTL */
-	if (ptr_pg_mapping->ptr_pg_table != NULL) {
-		/*kfree (ptr_pg_mapping->ptr_pg_table);*/
+	if (ptr_pg_mapping->ptr_pg_table != NULL)
 		free (ptr_pg_mapping->ptr_pg_table);
-	}
 	/* TODO: end */
 
 	/* destroy the page mapping context */
 	if (ptr_pg_mapping != NULL)
-		/*kfree (ptr_pg_mapping);*/
 		free (ptr_pg_mapping);
 
 	/* destroy the ssd context */
@@ -130,7 +126,6 @@ void page_mapping_destroy_ftl_context (struct ftl_context_t* ptr_ftl_context)
 
 	/* destory the ftl context */
 	if (ptr_ftl_context != NULL)
-		/*kfree (ptr_ftl_context);*/
 		free (ptr_ftl_context);
 }
 

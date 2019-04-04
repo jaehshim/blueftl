@@ -37,6 +37,7 @@ struct ftl_base_t ftl_base_block_mapping = {
 };
 
 /* create the block mapping table */
+/* 초기값들 모두 할당 및 설정, block table 할당, 초기화 작업 */
 struct ftl_context_t* block_mapping_create_ftl_context (
 	struct virtual_device_t* ptr_vdevice)
 {
@@ -47,7 +48,6 @@ struct ftl_context_t* block_mapping_create_ftl_context (
 	struct ftl_block_mapping_context_t* ptr_blk_mapping = NULL;
 
 	/* create the ftl context */
-	/*if ((ptr_ftl_context = (struct ftl_context_t*)kmalloc (sizeof (struct ftl_context_t), GFP_ATOMIC)) == NULL) {*/
 	if ((ptr_ftl_context = (struct ftl_context_t*)malloc (sizeof (struct ftl_context_t))) == NULL) {
 		printf ("blueftl_mapping_block: the creation of the ftl context failed\n");
 		goto error_alloc_ftl_context;
@@ -60,7 +60,7 @@ struct ftl_context_t* block_mapping_create_ftl_context (
 	}
 
 	/* create the block mapping context */
-	/*if ((ptr_ftl_context->ptr_mapping = (struct ftl_block_mapping_context_t *)kmalloc (sizeof (struct ftl_block_mapping_context_t), GFP_ATOMIC)) == NULL) {*/
+	/* ptr_mapping = {nr_blk_table_entries, ptr_blk_table} */
 	if ((ptr_ftl_context->ptr_mapping = (struct ftl_block_mapping_context_t *)malloc (sizeof (struct ftl_block_mapping_context_t))) == NULL) {
 		printf ("blueftl_mapping_block: the creation of the ftl context failed\n");
 		goto error_alloc_ftl_block_mapping_context;
@@ -75,14 +75,15 @@ struct ftl_context_t* block_mapping_create_ftl_context (
 	/* TODO: implement block-level FTL */
 
 	ptr_blk_mapping->nr_blk_table_entries = 
-		ptr_ssd->nr_buses * ptr_ssd->nr_chips_per_bus * ptr_ssd->nr_blocks_per_chip;
+		ptr_ssd->nr_buses * ptr_ssd->nr_chips_per_bus * ptr_ssd->nr_blocks_per_chip; // block table entry 개수
 
-	/*if ((ptr_blk_mapping->ptr_blk_table = (uint32_t*)kmalloc (ptr_blk_mapping->nr_blk_table_entries * sizeof (uint32_t), GFP_ATOMIC)) == NULL) {*/
+	/* allocate ptr_blk_table -> entry 개수만큼 */
 	if ((ptr_blk_mapping->ptr_blk_table = (uint32_t*)malloc (ptr_blk_mapping->nr_blk_table_entries * sizeof (uint32_t))) == NULL) {
 		printf ("blueftl_mapping_page: failed to allocate the memory for ptr_mapping_table\n");
 		goto error_alloc_mapping_table;
 	}
 
+	/* 할당된 ptr_blk_table 모두 free 설정 */
 	for (init_blk_loop = 0; init_blk_loop < ptr_blk_mapping->nr_blk_table_entries; init_blk_loop++) {
 		ptr_blk_mapping->ptr_blk_table[init_blk_loop] = BLOCK_TABLE_FREE;
 	}
@@ -93,14 +94,12 @@ struct ftl_context_t* block_mapping_create_ftl_context (
 
 
 error_alloc_mapping_table:
-	/*kfree (ptr_ftl_context->ptr_mapping);*/
 	free (ptr_ftl_context->ptr_mapping);
 
 error_alloc_ftl_block_mapping_context:
 	ssdmgmt_destroy_ssd (ptr_ssd);
 
 error_create_ssd_context:
-	/*kfree (ptr_ftl_context);*/
 	free (ptr_ftl_context);
 
 error_alloc_ftl_context:
@@ -114,15 +113,12 @@ void block_mapping_destroy_ftl_context (struct ftl_context_t* ptr_ftl_context)
 	struct ftl_block_mapping_context_t* ptr_blk_mapping = (struct ftl_block_mapping_context_t*)ptr_ftl_context->ptr_mapping;
 
 	/* TODO: implement block-level FTL */
-	if (ptr_blk_mapping->ptr_blk_table != NULL) {
-		/*kfree (ptr_blk_mapping->ptr_blk_table);*/
+	if (ptr_blk_mapping->ptr_blk_table != NULL)
 		free (ptr_blk_mapping->ptr_blk_table);
-	}
 	/* TODO: end */
 
 	/* destroy the block mapping context */
 	if (ptr_blk_mapping != NULL)
-		/*kfree (ptr_blk_mapping);*/
 		free (ptr_blk_mapping);
 
 	/* destroy the ssd context */
@@ -130,7 +126,6 @@ void block_mapping_destroy_ftl_context (struct ftl_context_t* ptr_ftl_context)
 
 	/* destory the ftl context */
 	if (ptr_ftl_context != NULL)
-		/*kfree (ptr_ftl_context);*/
 		free (ptr_ftl_context);
 }
 
@@ -251,6 +246,7 @@ need_gc:
 }
 
 /* map a logical page address to a physical page address */
+/* logical page address를 인자로 넘겨받음 */
 int32_t block_mapping_map_logical_to_physical (
 	struct ftl_context_t* ptr_ftl_context, 
 	uint32_t logical_page_address, 
@@ -270,11 +266,11 @@ int32_t block_mapping_map_logical_to_physical (
 	int32_t ret = -1;
 
 	/* get the logical block number and the page offset */
-	logical_block_address = logical_page_address / ptr_ssd->nr_pages_per_block;
-	page_offset = logical_page_address % ptr_ssd->nr_pages_per_block;
+	logical_block_address = logical_page_address / ptr_ssd->nr_pages_per_block; // block address 계산
+	page_offset = logical_page_address % ptr_ssd->nr_pages_per_block; // 모듈 연산 통해 offset 계산
 
 	/* get the physical block address using the block mapping table */
-	physical_block_address = ptr_blk_mapping->ptr_blk_table[logical_block_address];
+	physical_block_address = ptr_blk_mapping->ptr_blk_table[logical_block_address]; // entry값을 통해 실제 물리 주소 받음
 
 	if (page_offset != page) {
 		/* the page offset of the logical page address must be the same as the page address */
@@ -283,18 +279,18 @@ int32_t block_mapping_map_logical_to_physical (
 	}
 
 	/* see if the given logical block is alreay mapped or not */
-	if (physical_block_address == BLOCK_TABLE_FREE) {
+	if (physical_block_address == BLOCK_TABLE_FREE) { // physical_block_address가 block table entry에 기록되어 있지 않음, unmapped
 		/* encoding the ssd layout to a phyical block address 
 		   NOTE: the address of the page must be 0 in the block-level mapping */
 		physical_block_address = ftl_convert_to_physical_page_address (bus, chip, block, 0);
 
 		/* update the block mapping table */
-		ptr_blk_mapping->ptr_blk_table[logical_block_address] = physical_block_address;
+		ptr_blk_mapping->ptr_blk_table[logical_block_address] = physical_block_address; // mapping
 	} 
 
 	/* see if the given page is already written or not */
 	ptr_erase_block = &ptr_ssd->list_buses[bus].list_chips[chip].list_blocks[block];
-	if (ptr_erase_block->list_pages[page_offset].page_status == PAGE_STATUS_FREE) {
+	if (ptr_erase_block->list_pages[page_offset].page_status == PAGE_STATUS_FREE) { // free여야 함
 		/* make it valid */
 		ptr_erase_block->list_pages[page_offset].page_status = PAGE_STATUS_VALID;
 
@@ -307,7 +303,7 @@ int32_t block_mapping_map_logical_to_physical (
 		/*hmmm... the physical page that corresponds to the logical page must be free */
 		printf ("blueftl_mapping_block: the physical page address is already used (%u:%u,%u,%u,%u)\n", 
 			physical_block_address, bus, chip, block, page);
-		ret = -1;
+		ret = -1; // err
 	}
 
 	return ret;
