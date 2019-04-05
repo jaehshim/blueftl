@@ -154,18 +154,18 @@ int32_t block_mapping_get_mapped_physical_page_address (
 	/* obtain the physical block address using the block mapping table */
 	physical_block_address = ptr_blk_mapping->ptr_blk_table[logical_block_address];
 
-	if (physical_block_address == BLOCK_TABLE_FREE) {
+	if (physical_block_address == BLOCK_TABLE_FREE) { // 존재 X
 		/* the requested logical block is not mapped to any physical block */
 		*ptr_bus = *ptr_chip = *ptr_block = *ptr_page = -1;
 		ret = -1;
-	} else {
+	} else { // 존재 O
 		struct flash_block_t* ptr_erase_block = NULL;
 		
 		/* decoding the physical block address */
 		ftl_convert_to_ssd_layout (physical_block_address, ptr_bus, ptr_chip, ptr_block, NULL);
 		
 		ptr_erase_block = &ptr_ssd->list_buses[*ptr_bus].list_chips[*ptr_chip].list_blocks[*ptr_block];
-		if (ptr_erase_block->list_pages[page_offset].page_status == PAGE_STATUS_FREE) {
+		if (ptr_erase_block->list_pages[page_offset].page_status == PAGE_STATUS_FREE) { // page 존재 X
 			/* the logical page must be mapped to the corresponding physical page */
 			*ptr_bus = *ptr_chip = *ptr_block = *ptr_page = -1;
 			ret = -1;
