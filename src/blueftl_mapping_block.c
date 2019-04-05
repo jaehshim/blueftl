@@ -47,6 +47,8 @@ struct ftl_context_t* block_mapping_create_ftl_context (
 	struct flash_ssd_t* ptr_ssd = NULL;
 	struct ftl_block_mapping_context_t* ptr_blk_mapping = NULL;
 
+	printf("function : block_mapping_create_ftl_context\n");
+
 	/* create the ftl context */
 	if ((ptr_ftl_context = (struct ftl_context_t*)malloc (sizeof (struct ftl_context_t))) == NULL) {
 		printf ("blueftl_mapping_block: the creation of the ftl context failed\n");

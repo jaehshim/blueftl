@@ -9,6 +9,7 @@
 #include "blueftl_ftl_base.h"
 #include "blueftl_char.h"
 #include "blueftl_mapping_page.h" // page mapping header
+#include "blueftl_mapping_block.h" // block mapping header
 
 struct ftl_base_t _ftl_base;
 struct ftl_context_t* _ptr_ftl_context = NULL;
