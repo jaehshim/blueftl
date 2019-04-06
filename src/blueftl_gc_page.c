@@ -40,10 +40,26 @@ int32_t gc_page_trigger_gc (
 
 	uint8_t* ptr_block_buff = NULL;
 
-	new_page_offset = logical_page_address % ptr_ssd->nr_pages_per_block;
+	int i, min;
+
+	/* Greedy */
+	min = ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[0].nr_valid_pages;
+	victim_block = 0;
+	for (i = 1; i<ptr_ssd->nr_blocks_per_chip; i++) {
+		ptr_victim_block = &(ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[i]);
+
+		if (min > ptr_victim_block->nr_valid_pages) {
+			if (ptr_victim_block->nr_free_pages != ptr_ssd->nr_pages_per_block) { // 모든 페이지가 free인 block은 피함
+				min = ptr_victim_block->nr_valid_pages;
+				victim_block = i;
+			} else {
+				printf("evey page on this block is free!!\n");
+			}
+		}
+	}
 
 	/* get the victim block information */
-	if ((ptr_victim_block = &(ptr_ssd->list_buses[merge_bus].list_chips[merge_chip].list_blocks[merge_block])) == NULL) {
+	if ((ptr_victim_block = &(ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[victim_block])) == NULL) {
 		printf ("blueftl_gc_block: oops! 'ptr_victim_block' is NULL\n");
 		return -1;
 	}
@@ -64,7 +80,7 @@ int32_t gc_page_trigger_gc (
 
 			blueftl_user_vdevice_page_read (
 				_ptr_vdevice,
-				merge_bus, merge_chip, merge_block, loop_page, 
+				victim_bus, victim_chip, victim_block, loop_page, 
 				ptr_vdevice->page_main_size,
 				(char*)ptr_page_buff);
 
@@ -77,8 +93,8 @@ int32_t gc_page_trigger_gc (
 	memcpy (ptr_page_buff, ptr_new_data_buff, ptr_vdevice->page_main_size);
 
 	/* MERGE-STEP3: erase the target block */
-	/*bluessd_erase_wait_for_completion (ptr_vdevice, merge_bus, merge_chip, merge_block);*/
-	blueftl_user_vdevice_block_erase (ptr_vdevice, merge_bus, merge_chip, merge_block);
+	/*bluessd_erase_wait_for_completion (ptr_vdevice, victim_bus, victim_chip, victim_block);*/
+	blueftl_user_vdevice_block_erase (ptr_vdevice, victim_bus, victim_chip, victim_block);
 	ptr_victim_block->nr_erase_cnt++;
 	perf_gc_inc_blk_erasures ();
 
@@ -92,7 +108,7 @@ int32_t gc_page_trigger_gc (
 
 			blueftl_user_vdevice_page_write ( 
 					ptr_vdevice,
-					merge_bus, merge_chip, merge_block, loop_page, 
+					victim_bus, victim_chip, victim_block, loop_page, 
 					ptr_vdevice->page_main_size, 
 					(char*)ptr_page_buff);
 

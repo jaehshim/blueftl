@@ -219,6 +219,8 @@ int32_t page_mapping_get_free_physical_page_address(
 	struct ftl_page_mapping_context_t *ptr_pg_mapping = (struct ftl_page_mapping_context_t *)ptr_ftl_context->ptr_mapping;
 
 	uint32_t physical_page_address;
+	int gc_flag = 1;
+	int bus_num, chip_num, block_num, page_num;
 
 	printf("function : page_mapping_get_free_physical_page_address\n");
 	
@@ -332,15 +334,13 @@ int32_t page_mapping_get_free_physical_page_address(
 	return 0;
 
 need_gc:
-	int gc_flag = 1;
-
-	for (int bus_num = 0; bus_num < ptr_ssd->nr_buses; bus_num++)
+	for (bus_num = 0; bus_num < ptr_ssd->nr_buses; bus_num++)
 	{
-		for (int chip_num = 0; chip_num < ptr_ssd->nr_chips_per_bus; chip_num++)
+		for (chip_num = 0; chip_num < ptr_ssd->nr_chips_per_bus; chip_num++)
 		{
-			for (int block_num = 0; block_num < ptr_ssd->nr_blocks_per_chip; block_num++)
+			for (block_num = 0; block_num < ptr_ssd->nr_blocks_per_chip; block_num++)
 			{
-				for (int page_num = 0; page_num < ptr_ssd->nr_pages_per_block; page_num++)
+				for (page_num = 0; page_num < ptr_ssd->nr_pages_per_block; page_num++)
 				{
 					if (ptr_ssd->list_buses[bus_num].list_chips[chip_num].list_blocks[block_num].list_pages[page_num].page_status == PAGE_STATUS_FREE)
 					{
@@ -356,7 +356,7 @@ need_gc:
 		}
 	}
 	if (gc_flag) return -1;
-	else return -1;
+	else return 0;
 }
 
 /* map a logical page address to a physical page address */
