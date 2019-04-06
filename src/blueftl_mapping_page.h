@@ -2,6 +2,7 @@
 #define _BLUESSD_FTL_PAGE
 
 #define PAGE_TABLE_FREE		-1
+#define VIRGIN -1
 
 extern struct ftl_base_t ftl_base_page_mapping;
 
