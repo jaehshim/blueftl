@@ -213,8 +213,7 @@ int32_t page_mapping_get_free_physical_page_address(
 	uint32_t *ptr_page)
 {
 	struct flash_block_t *ptr_erase_block;
-	struct flash_block_t *ptr_pw_block;
-	struct flash_page_t *ptr_pw_page = NULL;
+	struct flash_block_t *ptr_pw_block = NULL;
 
 	struct flash_page_t *ptr_erase_page;
 	struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
@@ -223,11 +222,10 @@ int32_t page_mapping_get_free_physical_page_address(
 	uint32_t physical_page_address;
 
 	printf("function : page_mapping_get_free_physical_page_address\n");
-
+	
 	/* obtain the physical block address using the block mapping table */
 	physical_page_address = ptr_pg_mapping->ptr_pg_table[logical_page_address];
-	ptr_pw_block = &ptr_ssd->list_buses[ptr_ftl_context->pw_bus].list_chips[ptr_ftl_context->pw_chip].list_blocks[ptr_ftl_context->pw_block];
-	ptr_pw_page = &ptr_ssd->list_buses[ptr_ftl_context->pw_bus].list_chips[ptr_ftl_context->pw_chip].list_blocks[ptr_ftl_context->pw_block].list_pages[ptr_ftl_context->pw_page];
+	printf("1\n");
 
 	if (physical_page_address != PAGE_TABLE_FREE)
 	{
@@ -235,49 +233,46 @@ int32_t page_mapping_get_free_physical_page_address(
 		/* encoding the ssd layout to a phyical block address 
          NOTE: page must be 0 in the block-level mapping */
 		ftl_convert_to_ssd_layout(physical_page_address, ptr_bus, ptr_chip, ptr_block, ptr_page);
+		printf("2\n");
 
 		/* see if the logical page can be written to the physical block found */
 		ptr_erase_block = &ptr_ssd->list_buses[*ptr_bus].list_chips[*ptr_chip].list_blocks[*ptr_block];
 		ptr_erase_page = &ptr_ssd->list_buses[*ptr_bus].list_chips[*ptr_chip].list_blocks[*ptr_block].list_pages[*ptr_page];
 
 		// conflict page invalid
-		ptr_erase_page->page_status = PAGE_STATUS_INVALID;
-		ptr_erase_block->nr_valid_pages--;
-		ptr_erase_block->nr_invalid_pages++;
-		// ptr_erase_block->last_modified_time 추후 gc 용도?
+		if (ptr_erase_page->page_status != PAGE_STATUS_INVALID)
+		{
+			ptr_erase_page->page_status = PAGE_STATUS_INVALID;
+			ptr_erase_block->nr_valid_pages--;
+			ptr_erase_block->nr_invalid_pages++;
+			// ptr_erase_block->last_modified_time 추후 gc 용도?
+		}
 
-		if (
-			(ptr_ftl_context->pw_bus == VIRGIN && ptr_ftl_context->pw_chip == VIRGIN && ptr_ftl_context->pw_block == VIRGIN)								 // 첫 번째 write
-			|| (ptr_ssd->list_buses[ptr_ftl_context->pw_bus].list_chips[ptr_ftl_context->pw_chip].list_blocks[ptr_ftl_context->pw_block].nr_free_pages == 0) //쓰던 블락에 free page가 없는 경우
-		)
+		if (ptr_ftl_context->pw_bus == VIRGIN && ptr_ftl_context->pw_chip == VIRGIN && ptr_ftl_context->pw_block == VIRGIN) // 처음 쓰는 경우
 		{
 			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
-			int bus, chip;
-			int free_block_flag = 0;
-
-			for (bus = 0; bus < ptr_ssd->nr_buses; bus++)
+			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, 0, 0); // 해당 칩 안에서 free block 찾음
+			if (ptr_erase_block != NULL) // free block 발견
 			{
-				for (chip = 0; chip < ptr_ssd->nr_chips_per_bus; chip++)
-				{
-					ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, bus, chip);
-					if (ptr_erase_block != NULL)
-					{
-						*ptr_bus = ptr_erase_block->no_bus;
-						*ptr_chip = ptr_erase_block->no_chip;
-						*ptr_block = ptr_erase_block->no_block;
-						*ptr_page = 0; // 프리 블럭의 첫 페이지
-
-						//flag 조정. 필요한지 검토 필요
-						ptr_erase_block->list_pages[0].page_status = PAGE_STATUS_VALID;
-						ptr_erase_block->nr_valid_pages++;
-						ptr_erase_block->nr_invalid_pages--;
-
-						free_block_flag = 1;
-						break;
-					}
-				}
+				*ptr_bus = ptr_erase_block->no_bus;
+				*ptr_chip = ptr_erase_block->no_chip;
+				*ptr_block = ptr_erase_block->no_block;
+				*ptr_page = 0; // 프리 블럭의 첫 페이지
 			}
-			if (free_block_flag == 0)
+			else
+				goto need_gc;
+		}
+		else if (ptr_ssd->list_buses[ptr_ftl_context->pw_bus].list_chips[ptr_ftl_context->pw_chip].list_blocks[ptr_ftl_context->pw_block].nr_free_pages == 0) {
+			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
+			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, ptr_ftl_context->pw_bus, ptr_ftl_context->pw_chip); // 해당 칩 안에서 free block 찾음
+			if (ptr_erase_block != NULL) // free block 발견
+			{
+				*ptr_bus = ptr_erase_block->no_bus;
+				*ptr_chip = ptr_erase_block->no_chip;
+				*ptr_block = ptr_erase_block->no_block;
+				*ptr_page = 0; // 프리 블럭의 첫 페이지
+			}
+			else
 				goto need_gc;
 		}
 		else // 이전에 쓰던 블락에 자리가 남은 경우
@@ -286,49 +281,38 @@ int32_t page_mapping_get_free_physical_page_address(
 			*ptr_chip = ptr_ftl_context->pw_chip;
 			*ptr_block = ptr_ftl_context->pw_block;
 			*ptr_page = ptr_ftl_context->pw_page + 1; // 다음 페이지
-
-			//flag 조정. 필요한지 검토 필요
-			ptr_pw_block->list_pages[ptr_ftl_context->pw_page + 1].page_status = PAGE_STATUS_VALID;
-			ptr_pw_block->nr_valid_pages++;
-			ptr_pw_block->nr_invalid_pages--;
 		}
 	}
 	else
 	{
+		printf("3\n");
 		// mw: 요청이 들어온 lpa에 매핑된 ppa가 없다. -> free page 갖다줘야함. 기존의 erase_ 어쩌구 하는게 free page나 block을 의미하는 듯
-		if (
-			(ptr_ftl_context->pw_bus == VIRGIN && ptr_ftl_context->pw_chip == VIRGIN && ptr_ftl_context->pw_block == VIRGIN)								 // 첫 번째 write
-			|| (ptr_ssd->list_buses[ptr_ftl_context->pw_bus].list_chips[ptr_ftl_context->pw_chip].list_blocks[ptr_ftl_context->pw_block].nr_free_pages == 0) //쓰던 블락에 free page가 없는 경우
-		)
+		if (ptr_ftl_context->pw_bus == VIRGIN && ptr_ftl_context->pw_chip == VIRGIN && ptr_ftl_context->pw_block == VIRGIN) // 처음 쓰는 경우
 		{
+			printf("4\n");
 			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
-			int bus, chip;
-			int free_block_flag = 0;
-
-			for (bus = 0; bus < ptr_ssd->nr_buses; bus++)
+			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, 0, 0); // 해당 칩 안에서 free block 찾음
+			if (ptr_erase_block != NULL) // free block 발견
 			{
-				for (chip = 0; chip < ptr_ssd->nr_chips_per_bus; chip++)
-				{
-					ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, bus, chip);
-					if (ptr_erase_block != NULL) // 새로운 블락 발견
-					{
-						*ptr_bus = ptr_erase_block->no_bus;
-						*ptr_chip = ptr_erase_block->no_chip;
-						*ptr_block = ptr_erase_block->no_block;
-						*ptr_page = 0; // 프리 블럭의 첫 페이지 사용
-
-						//flag 조정. 필요한지 검토 필요
-						ptr_erase_block->list_pages[0].page_status = PAGE_STATUS_VALID;
-						ptr_erase_block->nr_valid_pages++;
-						ptr_erase_block->nr_invalid_pages--;
-
-						free_block_flag = 1;
-
-						break;
-					}
-				}
+				*ptr_bus = ptr_erase_block->no_bus;
+				*ptr_chip = ptr_erase_block->no_chip;
+				*ptr_block = ptr_erase_block->no_block;
+				*ptr_page = 0; // 프리 블럭의 첫 페이지
 			}
-			if (free_block_flag == 0)
+			else
+				goto need_gc;
+		}
+		else if (ptr_ssd->list_buses[ptr_ftl_context->pw_bus].list_chips[ptr_ftl_context->pw_chip].list_blocks[ptr_ftl_context->pw_block].nr_free_pages == 0) {
+			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
+			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, ptr_ftl_context->pw_bus, ptr_ftl_context->pw_chip); // 해당 칩 안에서 free block 찾음
+			if (ptr_erase_block != NULL) // free block 발견
+			{
+				*ptr_bus = ptr_erase_block->no_bus;
+				*ptr_chip = ptr_erase_block->no_chip;
+				*ptr_block = ptr_erase_block->no_block;
+				*ptr_page = 0; // 프리 블럭의 첫 페이지
+			}
+			else
 				goto need_gc;
 		}
 		else // 이전에 쓰던 블락에 자리가 남은 경우
@@ -337,10 +321,6 @@ int32_t page_mapping_get_free_physical_page_address(
 			*ptr_chip = ptr_ftl_context->pw_chip;
 			*ptr_block = ptr_ftl_context->pw_block;
 			*ptr_page = ptr_ftl_context->pw_page + 1; // 다음 페이지
-			//flag 조정. 필요한지 검토 필요
-			ptr_pw_block->list_pages[ptr_ftl_context->pw_page + 1].page_status = PAGE_STATUS_VALID;
-			ptr_pw_block->nr_valid_pages++;
-			ptr_pw_block->nr_invalid_pages--;
 		}
 	}
 
