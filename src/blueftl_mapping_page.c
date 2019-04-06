@@ -332,8 +332,31 @@ int32_t page_mapping_get_free_physical_page_address(
 	return 0;
 
 need_gc:
-	printf("goto gc\n");
-	return -1;
+	int gc_flag = 1;
+
+	for (int bus_num = 0; bus_num < ptr_ssd->nr_buses; bus_num++)
+	{
+		for (int chip_num = 0; chip_num < ptr_ssd->nr_chips_per_bus; chip_num++)
+		{
+			for (int block_num = 0; block_num < ptr_ssd->nr_blocks_per_chip; block_num++)
+			{
+				for (int page_num = 0; page_num < ptr_ssd->nr_pages_per_block; page_num++)
+				{
+					if (ptr_ssd->list_buses[bus_num].list_chips[chip_num].list_blocks[block_num].list_pages[page_num].page_status == PAGE_STATUS_FREE)
+					{
+						*ptr_bus = bus_num;
+						*ptr_chip = chip_num;
+						*ptr_block = block_num;
+						*ptr_page = page_num;
+						gc_flag = 0; // 프리 페이지 찾아서 gc 안해도됨
+						break;
+					}
+				}
+			}
+		}
+	}
+	if (gc_flag) return -1;
+	else return -1;
 }
 
 /* map a logical page address to a physical page address */
