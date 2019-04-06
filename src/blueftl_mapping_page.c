@@ -39,8 +39,8 @@ struct ftl_base_t ftl_base_page_mapping = {
 	.ftl_get_mapped_physical_page_address = page_mapping_get_mapped_physical_page_address,
 	.ftl_get_free_physical_page_address = page_mapping_get_free_physical_page_address,
 	.ftl_map_logical_to_physical = page_mapping_map_logical_to_physical,
-	.ftl_trigger_gc = NULL,
-	.ftl_trigger_merge = gc_page_trigger_merge,
+	.ftl_trigger_gc = gc_page_trigger_gc,
+	.ftl_trigger_merge = NULL,
 	.ftl_trigger_wear_leveler = NULL,
 };
 
@@ -213,7 +213,6 @@ int32_t page_mapping_get_free_physical_page_address(
 	uint32_t *ptr_page)
 {
 	struct flash_block_t *ptr_erase_block;
-	struct flash_block_t *ptr_pw_block = NULL;
 
 	struct flash_page_t *ptr_erase_page;
 	struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
@@ -264,7 +263,7 @@ int32_t page_mapping_get_free_physical_page_address(
 		}
 		else if (ptr_ssd->list_buses[ptr_ftl_context->pw_bus].list_chips[ptr_ftl_context->pw_chip].list_blocks[ptr_ftl_context->pw_block].nr_free_pages == 0) {
 			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
-			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, ptr_ftl_context->pw_bus, ptr_ftl_context->pw_chip); // 해당 칩 안에서 free block 찾음
+			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, 0, 0); // 해당 칩 안에서 free block 찾음
 			if (ptr_erase_block != NULL) // free block 발견
 			{
 				*ptr_bus = ptr_erase_block->no_bus;
@@ -304,7 +303,7 @@ int32_t page_mapping_get_free_physical_page_address(
 		}
 		else if (ptr_ssd->list_buses[ptr_ftl_context->pw_bus].list_chips[ptr_ftl_context->pw_chip].list_blocks[ptr_ftl_context->pw_block].nr_free_pages == 0) {
 			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
-			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, ptr_ftl_context->pw_bus, ptr_ftl_context->pw_chip); // 해당 칩 안에서 free block 찾음
+			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, 0, 0); // 해당 칩 안에서 free block 찾음
 			if (ptr_erase_block != NULL) // free block 발견
 			{
 				*ptr_bus = ptr_erase_block->no_bus;
