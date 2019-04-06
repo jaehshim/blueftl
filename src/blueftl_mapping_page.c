@@ -357,9 +357,8 @@ int32_t page_mapping_map_logical_to_physical (
 	physical_page_address = ptr_pg_mapping->ptr_pg_table[logical_page_address];
 
 	/* see if the given logical page is alreay mapped or not */
+	// ftl_convert & mapping table 중복 이유 찾기 & 중복이라면 밑으로 따로 빼기
 	if (physical_page_address == PAGE_TABLE_FREE) {
-		/* encoding the ssd layout to a phyical page address 
-		   NOTE: the address of the page must be 0 in the page-level mapping */
 		physical_page_address = ftl_convert_to_physical_page_address (bus, chip, block, page);
 
 		/* update the page mapping table */
