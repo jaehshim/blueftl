@@ -324,6 +324,7 @@ int32_t page_mapping_get_free_physical_page_address(
 	return 0;
 
 need_gc:
+	gc_flag = 1;
 	for (bus_num = 0; bus_num < ptr_ssd->nr_buses; bus_num++)
 	{
 		for (chip_num = 0; chip_num < ptr_ssd->nr_chips_per_bus; chip_num++)
