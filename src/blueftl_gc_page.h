@@ -5,11 +5,8 @@
 #include "blueftl_ftl_base.h"
 
 int32_t gc_page_trigger_gc (
-	struct ftl_context_t* ptr_ftl_context, 
-	uint32_t logical_page_address, 
-	uint8_t* ptr_lba_buffer, 
+	struct ftl_context_t* ptr_ftl_context,
 	uint32_t victim_bus, 
-	uint32_t victim_chip, 
-	uint32_t victim_block);
+	uint32_t victim_chip);
 
 #endif

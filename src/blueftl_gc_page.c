@@ -22,32 +22,29 @@
 
 
 int32_t gc_page_trigger_gc (
-	struct ftl_context_t* ptr_ftl_context, 
-	uint32_t logical_page_address, 
-	uint8_t* ptr_new_data_buff, 
+	struct ftl_context_t* ptr_ftl_context,
 	uint32_t victim_bus, 
-	uint32_t victim_chip, 
-	uint32_t victim_block)
+	uint32_t victim_chip)
 {
 	struct flash_ssd_t* ptr_ssd = ptr_ftl_context->ptr_ssd;
 	struct virtual_device_t* ptr_vdevice = ptr_ftl_context->ptr_vdevice;
 	struct flash_block_t* ptr_victim_block = NULL;
 
 	uint8_t* ptr_page_buff = NULL;
-	uint32_t new_page_offset = 0;
+	uint32_t victim_block;
+	uint32_t new_page_offset = 0; // -> this needed?
 	uint32_t loop_page = 0;
 	int32_t ret = 0;
 
 	uint8_t* ptr_block_buff = NULL;
 
 	int i, min;
-
 	/* Greedy */
 	/* getting victim block -> 함수로 빼기 */
-	min = ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[0].nr_valid_pages;
+	min = 65;
 	victim_block = 0;
-	for (i = 1; i<ptr_ssd->nr_blocks_per_chip; i++) {
-		ptr_victim_block = &(ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[i]);
+	for (i = 0; i<ptr_ssd->nr_blocks_per_chip; i++) {
+		ptr_victim_block = &ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[i];
 
 		if (ptr_victim_block->nr_free_pages == ptr_ssd->nr_pages_per_block)
 			continue;
@@ -87,10 +84,6 @@ int32_t gc_page_trigger_gc (
 			perf_gc_inc_page_copies ();
 		}
 	}
-
-	/* MERGE-STEP2: merge the existing data with the new data */
-	ptr_page_buff = ptr_block_buff + (new_page_offset * ptr_vdevice->page_main_size);
-	memcpy (ptr_page_buff, ptr_new_data_buff, ptr_vdevice->page_main_size);
 
 	/* MERGE-STEP3: erase the victim block */
 	blueftl_user_vdevice_block_erase (ptr_vdevice, victim_bus, victim_chip, victim_block);
