@@ -345,8 +345,10 @@ need_gc:
 			}
 		}
 	}
-	if (gc_flag) return -1;
-	else return 0;
+	if (gc_flag)
+		return -1;
+	else
+		return 0;
 }
 
 /* map a logical page address to a physical page address */
