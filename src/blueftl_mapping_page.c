@@ -55,8 +55,6 @@ struct ftl_context_t *page_mapping_create_ftl_context(
 	struct flash_ssd_t *ptr_ssd = NULL;
 	struct ftl_page_mapping_context_t *ptr_pg_mapping = NULL;
 
-	printf("function : page_mapping_create_ftl_context\n");
-
 	/* create the ftl context */
 	if ((ptr_ftl_context = (struct ftl_context_t *)malloc(sizeof(struct ftl_context_t))) == NULL)
 	{
@@ -166,8 +164,6 @@ int32_t page_mapping_get_mapped_physical_page_address(
 
 	int32_t ret = -1;
 
-	printf("function : page_mapping_get_mapped_physical_page_address\n");
-
 	/* get the logical block number and the page offset */
 	//logical_block_address = logical_page_address / ptr_ssd->nr_pages_per_block;
 
@@ -221,12 +217,9 @@ int32_t page_mapping_get_free_physical_page_address(
 	uint32_t physical_page_address;
 	int gc_flag = 1;
 	int bus_num, chip_num, block_num, page_num;
-
-	printf("function : page_mapping_get_free_physical_page_address\n");
 	
 	/* obtain the physical block address using the block mapping table */
 	physical_page_address = ptr_pg_mapping->ptr_pg_table[logical_page_address];
-	printf("1\n");
 
 	if (physical_page_address != PAGE_TABLE_FREE)
 	{
@@ -234,7 +227,6 @@ int32_t page_mapping_get_free_physical_page_address(
 		/* encoding the ssd layout to a phyical block address 
          NOTE: page must be 0 in the block-level mapping */
 		ftl_convert_to_ssd_layout(physical_page_address, ptr_bus, ptr_chip, ptr_block, ptr_page);
-		printf("2\n");
 
 		/* see if the logical page can be written to the physical block found */
 		ptr_erase_block = &ptr_ssd->list_buses[*ptr_bus].list_chips[*ptr_chip].list_blocks[*ptr_block];
@@ -286,11 +278,9 @@ int32_t page_mapping_get_free_physical_page_address(
 	}
 	else
 	{
-		printf("3\n");
 		// mw: 요청이 들어온 lpa에 매핑된 ppa가 없다. -> free page 갖다줘야함. 기존의 erase_ 어쩌구 하는게 free page나 block을 의미하는 듯
 		if (ptr_ftl_context->pw_bus == VIRGIN && ptr_ftl_context->pw_chip == VIRGIN && ptr_ftl_context->pw_block == VIRGIN) // 처음 쓰는 경우
 		{
-			printf("4\n");
 			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
 			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, 0, 0); // 해당 칩 안에서 free block 찾음
 			if (ptr_erase_block != NULL) // free block 발견
@@ -375,8 +365,6 @@ int32_t page_mapping_map_logical_to_physical(
 	uint32_t physical_page_address;
 
 	int32_t ret = -1;
-
-	printf("function : page_mapping_map_logical_to_physical\n");
 
 	/* get the physical page address using the page mapping table */
 	physical_page_address = ptr_pg_mapping->ptr_pg_table[logical_page_address];

@@ -43,18 +43,18 @@ int32_t gc_page_trigger_gc (
 	int i, min;
 
 	/* Greedy */
+	/* getting victim block -> 함수로 빼기 */
 	min = ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[0].nr_valid_pages;
 	victim_block = 0;
 	for (i = 1; i<ptr_ssd->nr_blocks_per_chip; i++) {
 		ptr_victim_block = &(ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[i]);
 
+		if (ptr_victim_block->nr_free_pages == ptr_ssd->nr_pages_per_block)
+			continue;
+
 		if (min > ptr_victim_block->nr_valid_pages) {
-			if (ptr_victim_block->nr_free_pages != ptr_ssd->nr_pages_per_block) { // 모든 페이지가 free인 block은 피함
 				min = ptr_victim_block->nr_valid_pages;
 				victim_block = i;
-			} else {
-				printf("evey page on this block is free!!\n");
-			}
 		}
 	}
 
@@ -64,7 +64,7 @@ int32_t gc_page_trigger_gc (
 		return -1;
 	}
 
-	/* allocate the memory for the block merge */
+	/* allocate the memory for the block merge & memset buffer */
 	if ((ptr_block_buff = (uint8_t*)malloc (ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size)) == NULL) {
 		printf ("blueftl_gc_block: the memory allocation for the merge buffer failed (%u)\n",
 				ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size);
@@ -92,17 +92,13 @@ int32_t gc_page_trigger_gc (
 	ptr_page_buff = ptr_block_buff + (new_page_offset * ptr_vdevice->page_main_size);
 	memcpy (ptr_page_buff, ptr_new_data_buff, ptr_vdevice->page_main_size);
 
-	/* MERGE-STEP3: erase the target block */
-	/*bluessd_erase_wait_for_completion (ptr_vdevice, victim_bus, victim_chip, victim_block);*/
+	/* MERGE-STEP3: erase the victim block */
 	blueftl_user_vdevice_block_erase (ptr_vdevice, victim_bus, victim_chip, victim_block);
 	ptr_victim_block->nr_erase_cnt++;
 	perf_gc_inc_blk_erasures ();
 
 	/* MERGE-STEP4: copy the data in the buffer to the block again */
 	for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++) {
-		/* flush the data to the block only when
-		   (1) the corresponding page has valid data before
-		   (2) there are new data from the host */
 		if (ptr_victim_block->list_pages[loop_page].page_status == 3 || loop_page == new_page_offset) {
 			ptr_page_buff = ptr_block_buff + (loop_page * ptr_vdevice->page_main_size);
 
@@ -112,9 +108,7 @@ int32_t gc_page_trigger_gc (
 					ptr_vdevice->page_main_size, 
 					(char*)ptr_page_buff);
 
-			/* are there new data from the host? */
 			if (ptr_victim_block->list_pages[loop_page].page_status == 1) {
-				/* if so, 'loop_page' must be the same as 'new_page_offset' */
 				if (loop_page != new_page_offset) {
 					printf ("blueftl_gc_block: 'loop_page' != 'new_page_offset'\n");
 					ret = -1;
