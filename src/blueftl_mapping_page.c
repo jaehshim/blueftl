@@ -24,15 +24,6 @@
 
 #endif
 
-/**
-   page_mapping_get_mapped_physical_page_address:
-      logical page를 주면 physical page를 리턴함
-   page_mapping_get_free_physical_page_address:
-      (write 직전) free page를 리턴함
-   page_mapping_map_logical_to_physical:
-      (write 직후) logical page와 physical page를 매핑시킴.
-**/
-
 struct ftl_base_t ftl_base_page_mapping = {
 	.ftl_create_ftl_context = page_mapping_create_ftl_context,
 	.ftl_destroy_ftl_context = page_mapping_destroy_ftl_context,
@@ -398,6 +389,10 @@ int32_t page_mapping_map_logical_to_physical(
 		ptr_pg_mapping->ptr_pg_table[logical_page_address] = physical_page_address;
 
 		ret = 0;
+
+		// recent time 기록 비교 how?
+		ptr_erase_block->last_modified_time = timer_get_timestamp_in_us();
+		printf("time : %d\n",  ptr_erase_block->last_modified_time);
 	}
 	else
 	{
