@@ -333,7 +333,9 @@ need_gc:
 				}
 			}
 		}
-	}
+	} // 모든 page에 대해 free page 검사
+
+	*ptr_bus = *ptr_chip = *ptr_block = *ptr_page = 0; // bus, chip, block, page 값 초기화
 	return -1;
 }
 

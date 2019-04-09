@@ -25,9 +25,9 @@
 
 void select_victim_block(struct flash_ssd_t * ptr_ssd, uint32_t victim_bus, uint32_t victim_chip, uint32_t * victim_block, int select_case)
 {
-	int i, min;
+	int i;
 	struct flash_block_t* ptr_victim_block = NULL;
-
+	uint32_t min, age, ctime, val, util;
 	switch (select_case)
 	{
 	case 1: // Greedy
@@ -56,8 +56,26 @@ void select_victim_block(struct flash_ssd_t * ptr_ssd, uint32_t victim_bus, uint
 		}
 		break;
 
-	case 3:
+	case 3: // Cost-Benefit
+		ctime = timer_get_timestamp_in_us();
+		min = ctime;
+		*victim_block = 0;
+		for (i = 0; i < ptr_ssd->nr_blocks_per_chip; i++)
+		{
+			ptr_victim_block = &ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[i];
 
+			if (ptr_victim_block->nr_free_pages == ptr_ssd->nr_pages_per_block)
+				continue;
+
+			util = ptr_victim_block.nr_valid_pages;
+			age = ctime - ptr_victim_block.last_modified_time;
+			val = util / ((1-util) * age);
+			if (min > val)
+			{
+				min = val;
+				*victim_block = i;
+			}
+		}
 		break;
 	default:
 		break;

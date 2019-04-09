@@ -19,10 +19,10 @@
 
 struct ftl_context_t {
 	// 이전에 쓰고 있던 block 추적용
-	int32_t recent_bus;
-	int32_t recent_chip;
-	int32_t recent_block;
-	int32_t recent_page;
+	uint32_t recent_bus;
+	uint32_t recent_chip;
+	uint32_t recent_block;
+	uint32_t recent_page;
 
 	/* all about SSD */
 	struct flash_ssd_t* ptr_ssd;
