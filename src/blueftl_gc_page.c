@@ -67,8 +67,8 @@ void select_victim_block(struct flash_ssd_t * ptr_ssd, uint32_t victim_bus, uint
 			if (ptr_victim_block->nr_free_pages == ptr_ssd->nr_pages_per_block)
 				continue;
 
-			util = ptr_victim_block.nr_valid_pages;
-			age = ctime - ptr_victim_block.last_modified_time;
+			util = ptr_victim_block->nr_valid_pages;
+			age = ctime - ptr_victim_block->last_modified_time;
 			val = util / ((1-util) * age);
 			if (min > val)
 			{
@@ -98,7 +98,7 @@ int32_t gc_page_trigger_gc_lab(
 
 	uint8_t* ptr_block_buff = NULL;
 	
-	select_victim_block(ptr_ssd, victim_bus, victim_chip, &victim_block, 1);
+	select_victim_block(ptr_ssd, victim_bus, victim_chip, &victim_block, 2);
 
 	/* get the victim block information */
 	if ((ptr_victim_block = &(ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[victim_block])) == NULL) {

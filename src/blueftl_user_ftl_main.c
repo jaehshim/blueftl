@@ -102,7 +102,6 @@ int32_t blueftl_user_ftl_main (
 					/* there are no free pages; do garbage collection */
 					if (_ftl_base.ftl_trigger_gc != NULL) {
 						/* trigger gc */
-					//	printf("Trigger_gc : %d %d\n", bus, chip);
 						if (_ftl_base.ftl_trigger_gc (_ptr_ftl_context, bus, chip) == -1) {
 							printf ("bluessd: oops! garbage collection failed.\n");
 							ret = -1;
