@@ -51,22 +51,26 @@ void select_victim_block(struct flash_ssd_t * ptr_ssd, uint32_t victim_bus, uint
 		srand(time(NULL));
 		*victim_block = rand() % ptr_ssd->nr_blocks_per_chip;
 		/* Avoid free block to be selected as victim */
-		while(ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[*victim_block].nr_free_pages == ptr_ssd->nr_pages_per_block) {
+		while (ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[*victim_block].nr_free_pages == ptr_ssd->nr_pages_per_block) {
 			*victim_block = rand() % ptr_ssd->nr_blocks_per_chip;
 		}
+		break;
+
+	case 3:
+
 		break;
 	default:
 		break;
 	}
 }
 
-int32_t gc_page_trigger_gc (
-	struct ftl_context_t* ptr_ftl_context,
-	uint32_t victim_bus, 
+int32_t gc_page_trigger_gc_lab(
+	struct ftl_context_t *ptr_ftl_context,
+	uint32_t victim_bus,
 	uint32_t victim_chip)
 {
-	struct flash_ssd_t* ptr_ssd = ptr_ftl_context->ptr_ssd;
-	struct virtual_device_t* ptr_vdevice = ptr_ftl_context->ptr_vdevice;
+	struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
+	struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
 	struct flash_block_t* ptr_victim_block = NULL;
 
 	uint8_t* ptr_page_buff = NULL;

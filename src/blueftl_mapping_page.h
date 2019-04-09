@@ -2,9 +2,9 @@
 #define _BLUESSD_FTL_PAGE
 
 #define PAGE_TABLE_FREE		-1
-#define VIRGIN -1
+#define VIRGIN 				-1
 
-extern struct ftl_base_t ftl_base_page_mapping;
+extern struct ftl_base_t ftl_base_page_mapping_lab;
 
 struct ftl_page_mapping_context_t {
 	uint32_t nr_pg_table_entries;	/* the number of blocks that belong to the page mapping table */

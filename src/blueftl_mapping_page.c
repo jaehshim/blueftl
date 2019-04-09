@@ -24,13 +24,13 @@
 
 #endif
 
-struct ftl_base_t ftl_base_page_mapping = {
+struct ftl_base_t ftl_base_page_mapping_lab = {
 	.ftl_create_ftl_context = page_mapping_create_ftl_context,
 	.ftl_destroy_ftl_context = page_mapping_destroy_ftl_context,
 	.ftl_get_mapped_physical_page_address = page_mapping_get_mapped_physical_page_address,
 	.ftl_get_free_physical_page_address = page_mapping_get_free_physical_page_address,
 	.ftl_map_logical_to_physical = page_mapping_map_logical_to_physical,
-	.ftl_trigger_gc = gc_page_trigger_gc,
+	.ftl_trigger_gc = gc_page_trigger_gc_lab,
 	.ftl_trigger_merge = NULL,
 	.ftl_trigger_wear_leveler = NULL,
 };
@@ -68,11 +68,11 @@ struct ftl_context_t *page_mapping_create_ftl_context(
 		goto error_alloc_ftl_page_mapping_context;
 	}
 
-	// initialize latest info
-	ptr_ftl_context->pw_bus = VIRGIN;
-	ptr_ftl_context->pw_chip = VIRGIN;
-	ptr_ftl_context->pw_block = VIRGIN;
-	ptr_ftl_context->pw_page = VIRGIN;
+	// init recent page info
+	ptr_ftl_context->recent_bus = VIRGIN;
+	ptr_ftl_context->recent_chip = VIRGIN;
+	ptr_ftl_context->recent_block = VIRGIN;
+	ptr_ftl_context->recent_page = VIRGIN;
 
 	/* set virtual device */
 	ptr_ftl_context->ptr_vdevice = ptr_vdevice;
@@ -206,7 +206,6 @@ int32_t page_mapping_get_free_physical_page_address(
 	struct ftl_page_mapping_context_t *ptr_pg_mapping = (struct ftl_page_mapping_context_t *)ptr_ftl_context->ptr_mapping;
 
 	uint32_t physical_page_address;
-	int gc_flag = 1;
 	int bus_num, chip_num, block_num, page_num;
 	
 	/* obtain the physical block address using the block mapping table */
@@ -232,7 +231,7 @@ int32_t page_mapping_get_free_physical_page_address(
 			// ptr_erase_block->last_modified_time 추후 gc 용도?
 		}
 
-		if (ptr_ftl_context->pw_bus == VIRGIN && ptr_ftl_context->pw_chip == VIRGIN && ptr_ftl_context->pw_block == VIRGIN) // 처음 쓰는 경우
+		if (ptr_ftl_context->recent_bus == VIRGIN && ptr_ftl_context->recent_chip == VIRGIN && ptr_ftl_context->recent_block == VIRGIN) // 처음 쓰는 경우
 		{
 			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
 			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, 0, 0); // 해당 칩 안에서 free block 찾음
@@ -246,7 +245,7 @@ int32_t page_mapping_get_free_physical_page_address(
 			else
 				goto need_gc;
 		}
-		else if (ptr_ssd->list_buses[ptr_ftl_context->pw_bus].list_chips[ptr_ftl_context->pw_chip].list_blocks[ptr_ftl_context->pw_block].nr_free_pages == 0) {
+		else if (ptr_ssd->list_buses[ptr_ftl_context->recent_bus].list_chips[ptr_ftl_context->recent_chip].list_blocks[ptr_ftl_context->recent_block].nr_free_pages == 0) {
 			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
 			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, 0, 0); // 해당 칩 안에서 free block 찾음
 			if (ptr_erase_block != NULL) // free block 발견
@@ -261,16 +260,16 @@ int32_t page_mapping_get_free_physical_page_address(
 		}
 		else // 이전에 쓰던 블락에 자리가 남은 경우
 		{
-			*ptr_bus = ptr_ftl_context->pw_bus;
-			*ptr_chip = ptr_ftl_context->pw_chip;
-			*ptr_block = ptr_ftl_context->pw_block;
-			*ptr_page = ptr_ftl_context->pw_page + 1; // 다음 페이지
+			*ptr_bus = ptr_ftl_context->recent_bus;
+			*ptr_chip = ptr_ftl_context->recent_chip;
+			*ptr_block = ptr_ftl_context->recent_block;
+			*ptr_page = ptr_ftl_context->recent_page + 1; // 다음 페이지
 		}
 	}
 	else
 	{
 		// mw: 요청이 들어온 lpa에 매핑된 ppa가 없다. -> free page 갖다줘야함. 기존의 erase_ 어쩌구 하는게 free page나 block을 의미하는 듯
-		if (ptr_ftl_context->pw_bus == VIRGIN && ptr_ftl_context->pw_chip == VIRGIN && ptr_ftl_context->pw_block == VIRGIN) // 처음 쓰는 경우
+		if (ptr_ftl_context->recent_bus == VIRGIN && ptr_ftl_context->recent_chip == VIRGIN && ptr_ftl_context->recent_block == VIRGIN) // 처음 쓰는 경우
 		{
 			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
 			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, 0, 0); // 해당 칩 안에서 free block 찾음
@@ -284,7 +283,7 @@ int32_t page_mapping_get_free_physical_page_address(
 			else
 				goto need_gc;
 		}
-		else if (ptr_ssd->list_buses[ptr_ftl_context->pw_bus].list_chips[ptr_ftl_context->pw_chip].list_blocks[ptr_ftl_context->pw_block].nr_free_pages == 0) {
+		else if (ptr_ssd->list_buses[ptr_ftl_context->recent_bus].list_chips[ptr_ftl_context->recent_chip].list_blocks[ptr_ftl_context->recent_block].nr_free_pages == 0) {
 			// 기존에 쓰던 블락이 없거나 꽉 찼기 때문에, 이 경우 새 free block의 첫 번째 페이지를 갖다 줘야 함
 			ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, 0, 0); // 해당 칩 안에서 free block 찾음
 			if (ptr_erase_block != NULL) // free block 발견
@@ -299,18 +298,17 @@ int32_t page_mapping_get_free_physical_page_address(
 		}
 		else // 이전에 쓰던 블락에 자리가 남은 경우
 		{
-			*ptr_bus = ptr_ftl_context->pw_bus;
-			*ptr_chip = ptr_ftl_context->pw_chip;
-			*ptr_block = ptr_ftl_context->pw_block;
-			*ptr_page = ptr_ftl_context->pw_page + 1; // 다음 페이지
+			*ptr_bus = ptr_ftl_context->recent_bus;
+			*ptr_chip = ptr_ftl_context->recent_chip;
+			*ptr_block = ptr_ftl_context->recent_block;
+			*ptr_page = ptr_ftl_context->recent_page + 1; // 다음 페이지
 		}
 	}
 
-	ptr_ftl_context->pw_bus = *ptr_bus;
-	ptr_ftl_context->pw_chip = *ptr_chip;
-	ptr_ftl_context->pw_block = *ptr_block;
-	ptr_ftl_context->pw_page = *ptr_page;
-
+	ptr_ftl_context->recent_bus = *ptr_bus;
+	ptr_ftl_context->recent_chip = *ptr_chip;
+	ptr_ftl_context->recent_block = *ptr_block;
+	ptr_ftl_context->recent_page = *ptr_page;
 
 	return 0;
 
@@ -360,7 +358,6 @@ int32_t page_mapping_map_logical_to_physical(
 	physical_page_address = ptr_pg_mapping->ptr_pg_table[logical_page_address];
 
 	/* see if the given logical page is alreay mapped or not */
-	// ftl_convert & mapping table 중복 이유 찾기 & 중복이라면 밑으로 따로 빼기
 	if (physical_page_address == PAGE_TABLE_FREE)
 	{
 		physical_page_address = ftl_convert_to_physical_page_address(bus, chip, block, page);
@@ -380,7 +377,6 @@ int32_t page_mapping_map_logical_to_physical(
 		ptr_erase_block->nr_valid_pages++;
 		ptr_erase_block->nr_free_pages--;
 
-		/* Why? */
 		physical_page_address = ftl_convert_to_physical_page_address(bus, chip, block, page);
 		ptr_pg_mapping->ptr_pg_table[logical_page_address] = physical_page_address;
 
@@ -388,7 +384,7 @@ int32_t page_mapping_map_logical_to_physical(
 
 		// recent time 기록 비교 how?
 		ptr_erase_block->last_modified_time = timer_get_timestamp_in_us();
-		printf("time : %d\n",  ptr_erase_block->last_modified_time);
+	//	printf("time : %d\n",  ptr_erase_block->last_modified_time);
 	}
 	else
 	{
