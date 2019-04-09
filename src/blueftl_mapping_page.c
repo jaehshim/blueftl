@@ -313,7 +313,7 @@ int32_t page_mapping_get_free_physical_page_address(
 	return 0;
 
 need_gc:
-/*	for (bus_num = 0; bus_num < ptr_ssd->nr_buses; bus_num++)
+	for (bus_num = 0; bus_num < ptr_ssd->nr_buses; bus_num++)
 	{
 		for (chip_num = 0; chip_num < ptr_ssd->nr_chips_per_bus; chip_num++)
 		{
@@ -334,7 +334,7 @@ need_gc:
 			}
 		}
 	} // 모든 page에 대해 free page 검사
-*/
+
 	*ptr_bus = *ptr_chip = *ptr_block = *ptr_page = 0; // bus, chip, block, page 값 초기화
 	return -1;
 }
