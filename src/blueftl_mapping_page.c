@@ -315,7 +315,6 @@ int32_t page_mapping_get_free_physical_page_address(
 	return 0;
 
 need_gc:
-	gc_flag = 1;
 	for (bus_num = 0; bus_num < ptr_ssd->nr_buses; bus_num++)
 	{
 		for (chip_num = 0; chip_num < ptr_ssd->nr_chips_per_bus; chip_num++)
@@ -330,17 +329,14 @@ need_gc:
 						*ptr_chip = chip_num;
 						*ptr_block = block_num;
 						*ptr_page = page_num;
-						gc_flag = 0; // 프리 페이지 찾아서 gc 안해도됨
-						break;
+
+						return 0;
 					}
 				}
 			}
 		}
 	}
-	if (gc_flag)
-		return -1;
-	else
-		return 0;
+	return -1;
 }
 
 /* map a logical page address to a physical page address */
