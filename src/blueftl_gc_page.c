@@ -27,7 +27,8 @@ void select_victim_block(struct flash_ssd_t * ptr_ssd, uint32_t victim_bus, uint
 {
 	int i;
 	struct flash_block_t* ptr_victim_block = NULL;
-	uint32_t min, age, ctime, val, util;
+	uint32_t min, age, ctime;
+	double val, min_val, util;
 	switch (select_case)
 	{
 	case 1: // Greedy
@@ -58,7 +59,7 @@ void select_victim_block(struct flash_ssd_t * ptr_ssd, uint32_t victim_bus, uint
 
 	case 3: // Cost-Benefit
 		ctime = timer_get_timestamp_in_us();
-		min = ctime;
+		min_val = (double)ctime;
 		*victim_block = 0;
 		for (i = 0; i < ptr_ssd->nr_blocks_per_chip; i++)
 		{
@@ -67,12 +68,12 @@ void select_victim_block(struct flash_ssd_t * ptr_ssd, uint32_t victim_bus, uint
 			if (ptr_victim_block->nr_free_pages == ptr_ssd->nr_pages_per_block)
 				continue;
 
-			util = ptr_victim_block->nr_valid_pages;
+			util = (double)ptr_victim_block->nr_valid_pages / ptr_ssd->nr_pages_per_block;
 			age = ctime - ptr_victim_block->last_modified_time;
-			val = util / ((1-util) * age);
-			if (min > val)
+			val = (double)util / ((1-util) * age);
+			if (min_val > val)
 			{
-				min = val;
+				min_val = val;
 				*victim_block = i;
 			}
 		}
@@ -97,8 +98,8 @@ int32_t gc_page_trigger_gc_lab(
 	int32_t ret = 0;
 
 	uint8_t* ptr_block_buff = NULL;
-	
-	select_victim_block(ptr_ssd, victim_bus, victim_chip, &victim_block, 2);
+
+	select_victim_block(ptr_ssd, victim_bus, victim_chip, &victim_block, 1);
 
 	/* get the victim block information */
 	if ((ptr_victim_block = &(ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[victim_block])) == NULL) {
