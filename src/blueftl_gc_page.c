@@ -99,7 +99,7 @@ int32_t gc_page_trigger_gc_lab(
 
 	uint8_t* ptr_block_buff = NULL;
 
-	select_victim_block(ptr_ssd, victim_bus, victim_chip, &victim_block, 1);
+	select_victim_block(ptr_ssd, victim_bus, victim_chip, &victim_block, 3); // 1:Greedy, 2:Random, 3:Cost-Benefit
 
 	/* get the victim block information */
 	if ((ptr_victim_block = &(ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[victim_block])) == NULL) {
