@@ -1,5 +1,5 @@
 #ifdef KERNEL_MODE
-/* This is provided for better understanidng for perf counts */
+/* This is provided for better understandng for perf counts */
 #include <linux/time.h>
 #include <linux/vmalloc.h>
 #include <linux/types.h>

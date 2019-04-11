@@ -1,11 +1,14 @@
 #ifdef KERNEL_MODE
 
 #include <linux/vmalloc.h>
+#include <time.h>
+#include <stdbool.h>
+
 #include "blueftl_ftl_base.h"
 #include "blueftl_mapping_page.h"
 #include "blueftl_gc_page.h"
 #include "blueftl_util.h"
-#include <time.h>
+#include "blueftl_wl_dual_pool.h"
 
 #else
 
@@ -13,12 +16,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
 
 #include "blueftl_ftl_base.h"
 #include "blueftl_mapping_page.h"
 #include "blueftl_gc_page.h"
 #include "blueftl_util.h"
 #include "blueftl_user_vdevice.h"
+#include "blueftl_wl_dual_pool.h"
 
 #endif
 
@@ -134,6 +139,7 @@ int32_t gc_page_trigger_gc_lab(
 	/* MERGE-STEP3: erase the victim block */
 	blueftl_user_vdevice_block_erase (ptr_vdevice, victim_bus, victim_chip, victim_block);
 	ptr_victim_block->nr_erase_cnt++;
+	ptr_victim_block->nr_recent_erase_cnt++;
 	perf_gc_inc_blk_erasures ();
 
 	/* MERGE-STEP4: copy the data in the buffer to the block again */
@@ -158,11 +164,21 @@ int32_t gc_page_trigger_gc_lab(
 		}
 	}
 
-gc_exit:
+	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_victim_block);
 
+/*	if (check_cold_data_migration(ptr_ftl_context) == TRUE)
+		cold_data_migration(ptr_ftl_context);
+	update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context);
+	if (check_cold_pool_adjustment(ptr_ftl_context) == TRUE)
+		cold_pool_adjustment(ptr_ftl_context);
+	if (check_hot_pool_adjustment(ptr_ftl_context) == TRUE)
+		hot_pool_adjustment(ptr_ftl_context);
+
+*/
 	/* free the block buffer */
-	if (ptr_block_buff != NULL) {
-		free (ptr_block_buff);
+	if (ptr_block_buff != NULL)
+	{
+		free(ptr_block_buff);
 	}
 
 	return ret;
