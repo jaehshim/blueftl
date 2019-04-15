@@ -24,6 +24,17 @@ struct ftl_context_t {
 	uint32_t recent_block;
 	uint32_t recent_page;
 
+	// hot/cold 의 head/tail 추적용
+	struct flash_block_t *ec_head_hot_block;
+	struct flash_block_t *ec_tail_hot_block;
+	struct flash_block_t *ec_head_cold_block;
+	struct flash_block_t *ec_tail_cold_block;
+
+	struct flash_block_t *rec_head_hot_block;
+	struct flash_block_t *rec_tail_hot_block;
+	struct flash_block_t *rec_head_cold_block;
+	struct flash_block_t *rec_tail_cold_block;
+
 	/* all about SSD */
 	struct flash_ssd_t* ptr_ssd;
 
