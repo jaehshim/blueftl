@@ -62,8 +62,8 @@ struct ftl_wl_t {
 */
 void check_max_min_nr_erase_cnt(struct ftl_context_t *ptr_ftl_context, struct flash_block_t* ptr_erase_block);
 bool check_cold_data_migration(void);
-void cold_data_migration(struct ftl_context_t* ptr_ftl_context_t);
-uint32_t update_max_min_nr_erase_cnt_in_pool(struct ftl_context_t *ptr_ftl_context, int pool, int type, int min_max, int bus, int chip, int block, uint32_t erasure_count);
+int32_t cold_data_migration(struct ftl_context_t* ptr_ftl_context_t);
+void update_max_min_nr_erase_cnt_in_pool(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, int pool, int type, int min_max);
 bool check_cold_pool_adjustment(void);
 bool check_hot_pool_adjustment(void);
 void cold_pool_adjustment(struct ftl_context_t *ptr_ftl_context_t);
@@ -73,8 +73,14 @@ uint32_t find_max_ec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, ui
 uint32_t find_max_rec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool);
 uint32_t find_min_rec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool); void insert_pool(struct ftl_context_t* ptr_ftl_context_t, struct flash_block_t* ptr_erase_block); void init_global_wear_leveling_metadata(void); struct flash_block_t *get_min_max_ptr(struct ftl_context_t *ptr_ftl_context, dual_pool_block_info *pool_info);
 struct flash_block_t *get_erase_blk_ptr(struct ftl_context_t *ptr_ftl_context, uint32_t target_bus, uint32_t target_chip, uint32_t target_block);
-bool block_copy(struct flash_block_t *ptr_src_block, struct flash_block_t *ptr_tgt_block, struct ftl_context_t *ptr_ftl_context);
 
-bool page_clean_in_block(struct flash_block_t *ptr_block,  struct ftl_context_t *ptr_ftl_context);
+//added functions
+bool block_valid_copy(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, uint8_t *ptr_block_buff);
+bool page_clean_in_block(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block);
+bool write_buffer_to_block(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, uint8_t *ptr_block_buff);
+bool rec_reset(struct ftl_context_t *ptr_ftl_context);
+bool block_pool_swap(struct ftl_context_t *ptr_ftl_context);
+bool find_new_heads(struct ftl_context_t *ptr_ftl_context);
+
 
 #endif
