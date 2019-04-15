@@ -99,7 +99,8 @@ struct ftl_context_t *page_mapping_create_ftl_context(
 	}
 
 	/* TODO: end */
-
+	init_global_wear_leveling_metadata(ptr_ftl_context);
+	
 	return ptr_ftl_context;
 
 error_alloc_mapping_table:
@@ -113,6 +114,40 @@ error_create_ssd_context:
 
 error_alloc_ftl_context:
 	return NULL;
+}
+
+/* init wear leveling metadata */
+void init_global_wear_leveling_metadata(struct ftl_context_t *ptr_ftl_context)
+{
+	struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
+	struct flash_block_t * ptr_block = NULL;
+	int i, j, k;
+
+	for (i = 0; i < ptr_ssd->nr_buses; i++)
+	{
+		for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
+		{
+			for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
+			{
+				ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
+				/* hot pool cold pool split */
+				ptr_block->hot_cold_pool = k % 2;
+			}
+		}
+	}
+
+	/* determine head & tail */
+	ptr_ftl_context->hot_block_ec_head = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[0]);
+	ptr_ftl_context->hot_block_rec_head = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[0]);
+
+	ptr_ftl_context->hot_block_ec_tail = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[2]);
+	ptr_ftl_context->hot_block_rec_tail = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[2]);
+
+	ptr_ftl_context->cold_block_ec_head = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[1]);
+	ptr_ftl_context->cold_block_rec_head = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[1]);
+
+	ptr_ftl_context->cold_block_ec_tail = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[3]);
+	ptr_ftl_context->cold_block_rec_tail = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[3]);
 }
 
 /* destroy the page mapping table */

@@ -14,6 +14,8 @@ struct ftl_page_mapping_context_t {
 /* create the page mapping table */
 struct ftl_context_t* page_mapping_create_ftl_context (struct virtual_device_t* ptr_vdevice);
 
+void init_global_wear_leveling_metadata (struct ftl_context_t* ptr_ftl_context);
+
 /* destroy the page mapping table */
 void page_mapping_destroy_ftl_context (struct ftl_context_t* ptr_ftl_context);
 

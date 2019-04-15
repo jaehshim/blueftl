@@ -153,7 +153,7 @@ int32_t gc_page_trigger_gc_lab(
 					ptr_vdevice->page_main_size, 
 					(char*)ptr_page_buff);
 
-			if (ptr_victim_block->list_pages[loop_page].page_status == 1) {
+			if (ptr_victim_block->list_pages[loop_page].page_status == 1) { // 사실 필요 없음
 				/* increase the number of valid pages in the block */
 				ptr_victim_block->nr_valid_pages++;
 				ptr_victim_block->nr_free_pages--;
@@ -164,15 +164,13 @@ int32_t gc_page_trigger_gc_lab(
 		}
 	}
 
-	printf("gc");
-
 	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_victim_block);
 
-	if (check_cold_data_migration(ptr_ftl_context) == TRUE)
+	if (check_cold_data_migration())
 		cold_data_migration(ptr_ftl_context);
-/*	if (check_cold_pool_adjustment(ptr_ftl_context) == TRUE)
+/*	if (check_cold_pool_adjustment())
 		cold_pool_adjustment(ptr_ftl_context);
-	if (check_hot_pool_adjustment(ptr_ftl_context) == TRUE)
+	if (check_hot_pool_adjustment())
 		hot_pool_adjustment(ptr_ftl_context);
 
 */

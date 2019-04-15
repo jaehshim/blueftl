@@ -71,7 +71,9 @@ void hot_pool_adjustment(struct ftl_context_t *ptr_ftl_context_t);
 uint32_t find_min_ec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool);
 uint32_t find_max_ec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool);
 uint32_t find_max_rec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool);
-uint32_t find_min_rec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool); void insert_pool(struct ftl_context_t* ptr_ftl_context_t, struct flash_block_t* ptr_erase_block); void init_global_wear_leveling_metadata(void); struct flash_block_t *get_min_max_ptr(struct ftl_context_t *ptr_ftl_context, dual_pool_block_info *pool_info);
+uint32_t find_min_rec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool);
+void insert_pool(struct ftl_context_t* ptr_ftl_context_t, struct flash_block_t* ptr_erase_block);
+struct flash_block_t *get_min_max_ptr(struct ftl_context_t *ptr_ftl_context, dual_pool_block_info *pool_info);
 struct flash_block_t *get_erase_blk_ptr(struct ftl_context_t *ptr_ftl_context, uint32_t target_bus, uint32_t target_chip, uint32_t target_block);
 
 //added functions

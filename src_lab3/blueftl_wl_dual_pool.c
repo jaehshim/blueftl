@@ -51,7 +51,6 @@ bool check_cold_data_migration()
 
 void check_max_min_nr_erase_cnt(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_erase_block)
 {
-    printf("wl\n");
     if (ptr_erase_block->hot_cold_pool == HOT_POOL)
     {
         if (g_min_ec_in_hot_pool.nr_erase_cnt > ptr_erase_block->nr_erase_cnt)
@@ -128,6 +127,7 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     uint8_t *ptr_block_buff2 = NULL;
 
     /* block의 데이터 보관할 buffer 선언 및 할당 */
+    //   printf("step 1\n");
     if ((ptr_block_buff1 = (uint8_t *)malloc(ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size)) == NULL)
     {
         printf("blueftl_cold_migration: the memory allocation for the merge buffer1 failed (%u)\n",
@@ -145,62 +145,84 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     memset(ptr_block_buff2, 0xFF, ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size);
 
     /* buffer로 block의 데이터 copy */
+    //   printf("step 2\n");
     if (!block_valid_copy(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head, ptr_block_buff1)) // copying valid data of oldest hot block to buffer
     {
         printf("cold mig hot head block copy to buffer failed\n");
+        exit(1);
         return -1;
     }
-    if (!block_valid_copy(ptr_ftl_context, ptr_ftl_context->cold_block_ec_head, ptr_block_buff1)) // copying valid data of youngest cold block to buffer
+    if (!block_valid_copy(ptr_ftl_context, ptr_ftl_context->cold_block_ec_head, ptr_block_buff2)) // copying valid data of youngest cold block to buffer
     {
         printf("cold mig cold head block copy to buffer failed\n");
+        exit(1);
         return -1;
     }
 
     /* head blocks (cold & hot) 삭제 */
+    //   printf("step 3\n");
     if (!page_clean_in_block(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head))
     { // erase hot pool oldest block
         printf("cold mig hot head block clean failed\n");
+        exit(1);
         return -1;
     }
     if (!page_clean_in_block(ptr_ftl_context, ptr_ftl_context->cold_block_ec_head))
     { // erase cold pool youngest block
         printf("cold mig cold head block clean failed\n");
+        exit(1);
         return -1;
     }
 
     /* cold block <-> hot block data swap  */
+    //    printf("step 4\n");
     if (!write_buffer_to_block(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head, ptr_block_buff2))
     {
         printf("cold mig hot head block copy from buffer failed\n"); //write data in buffer to oldest_hot_block
+        exit(1);
         return -1;
     }
     if (!write_buffer_to_block(ptr_ftl_context, ptr_ftl_context->cold_block_ec_head, ptr_block_buff1))
     { //write data in buffer to youngest_cold_block
         printf("cold mig hot head block copy from buffer failed\n");
+        exit(1);
         return -1;
     }
 
     /* cold pool로 이동할 hot head block의 rec값 초기화 -> only cold pool */
+    //    printf("step 5\n");
     if (!rec_reset(ptr_ftl_context))
     {
         printf("cold mig rec reset failed\n"); //write data in buffer to oldest_hot_block
+        exit(1);
         return -1;
     }
 
     /* block들의 pool 위치 변경 */
+    //   printf("step 6\n");
     if (!block_pool_swap(ptr_ftl_context)) // swap two blocks. to the pool tail
     {
         printf("cold mig swap failed\n");
+        exit(1);
         return -1;
     }
 
     /* find new head for each pools */
+    //  printf("step 7\n");
     if (!find_new_heads(ptr_ftl_context)) // find new heads for two pools
     {
         printf("finding new hot pool head failed\n");
+        exit(1);
         return -1;
     }
 
+    //    printf("step 8\n");
+    if (ptr_block_buff1 != NULL)
+        free(ptr_block_buff1);
+    if (ptr_block_buff2 != NULL)
+        free(ptr_block_buff2);
+
+    //   printf("step 9\n");
     return 0;
 }
 
@@ -240,7 +262,7 @@ bool page_clean_in_block(struct ftl_context_t *ptr_ftl_context, struct flash_blo
 
     if (ptr_target_block == NULL)
     {
-        printf("Invalid ptr_target_block in block_valid_copy() !!\n");
+        printf("Invalid ptr_target_block in page_clean_in_block() !!\n");
         return false;
     }
 
@@ -259,7 +281,7 @@ bool write_buffer_to_block(struct ftl_context_t *ptr_ftl_context, struct flash_b
 
     if (ptr_target_block == NULL)
     {
-        printf("Invalid ptr_target_block in block_valid_copy() !!\n");
+        printf("Invalid ptr_target_block in write_buffer_to_block() !!\n");
         return false;
     }
 
@@ -288,16 +310,29 @@ bool rec_reset(struct ftl_context_t *ptr_ftl_context)
 bool block_pool_swap(struct ftl_context_t *ptr_ftl_context)
 {
     //여기서 if 인 이유: tail이 최대/최소를 갖도록 하기 위해
-    if (ptr_ftl_context->hot_block_ec_head->nr_erase_cnt > ptr_ftl_context->cold_block_ec_tail->nr_erase_cnt) {
+    if (ptr_ftl_context->hot_block_ec_head->nr_erase_cnt > ptr_ftl_context->cold_block_ec_tail->nr_erase_cnt)
+    {
         ptr_ftl_context->cold_block_ec_tail = ptr_ftl_context->hot_block_ec_head; // hot pool의 head -> cold pool의 tail로 이동
-        ptr_ftl_context->hot_block_ec_head = NULL; // 기존 hot pool의 head 초기화
         ptr_ftl_context->cold_block_ec_tail->hot_cold_pool = COLD_POOL;
+        ptr_ftl_context->hot_block_ec_head = NULL;                                // 기존 hot pool의 head 초기화
+    }
+    else
+    { // tail은 못 됐지만 cold pool에는 들어감
+        ptr_ftl_context->hot_block_ec_head = COLD_POOL;
+        ptr_ftl_context->hot_block_ec_head = NULL; // 기존 hot pool의 head 초기화
     }
 
-    if (ptr_ftl_context->cold_block_ec_head->nr_erase_cnt < ptr_ftl_context->hot_block_ec_tail->nr_erase_cnt) {
+    if (ptr_ftl_context->cold_block_ec_head->nr_erase_cnt < ptr_ftl_context->hot_block_ec_tail->nr_erase_cnt)
+    {
         ptr_ftl_context->hot_block_ec_tail = ptr_ftl_context->cold_block_ec_head; // cold pool의 head -> hot pool의 head로 이동
-        ptr_ftl_context->cold_block_ec_head = NULL; // 기존 cold pool의 head 초기화
         ptr_ftl_context->hot_block_ec_tail->hot_cold_pool = HOT_POOL;
+        ptr_ftl_context->cold_block_ec_head = NULL;                               // 기존 cold pool의 head 초기화
+    }
+    else
+    {
+        ptr_ftl_context->cold_block_ec_head = HOT_POOL;
+        ptr_ftl_context->cold_block_ec_head = NULL; // 기존 cold pool의 head 초기화
+        
     }
 
     return true;
@@ -308,9 +343,11 @@ bool find_new_heads(struct ftl_context_t *ptr_ftl_context)
     //전체를 뒤져서 새로운 head를 찾아야 함. 전체 탐색 과정은 어떤 순서일지라도 어쩔 수 없이 포함되긴 해야 하는 듯.
     struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
     struct flash_block_t *ptr_block = NULL;
-    uint32_t ec_max = 0;
-    uint32_t ec_min = -1;
+    int32_t ec_max = -1;
+    int32_t ec_min = ~(1 << 31);
     int i, j, k;
+    int max_k = 0;
+    int min_k = 0;
 
     for (i = 0; i < ptr_ssd->nr_buses; i++)
     {
@@ -319,22 +356,38 @@ bool find_new_heads(struct ftl_context_t *ptr_ftl_context)
             for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
             {
                 ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
+
                 if (ptr_block->hot_cold_pool == HOT_POOL)
                 {
                     if (ptr_block->nr_erase_cnt > ec_max)
                     {
                         ec_max = ptr_block->nr_erase_cnt;
-                        ptr_ftl_context->hot_block_ec_head = ptr_block;
+                        max_k = k;
                     }
-                } else { // ptr_block in cold pool
+                }
+                else
+                { // ptr_block in cold pool
                     if (ptr_block->nr_erase_cnt < ec_min)
                     {
                         ec_min = ptr_block->nr_erase_cnt;
-                        ptr_ftl_context->cold_block_ec_head = ptr_block;
+                        min_k = k;
                     }
                 }
             }
         }
+    }
+    ptr_ftl_context->cold_block_ec_head = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[min_k]);
+    ptr_ftl_context->hot_block_ec_head = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[max_k]);
+
+    if (ptr_ftl_context->cold_block_ec_head->hot_cold_pool == HOT_POOL)
+    {
+        printf("Wrong Classification\n");
+        exit(1);
+    }
+    if (ptr_ftl_context->hot_block_ec_head->hot_cold_pool == COLD_POOL)
+    {
+        printf("Wrong Classification\n");
+        exit(1);
     }
     return true;
 }
@@ -361,7 +414,11 @@ uint32_t find_min_rec_pool_block_info(struct ftl_context_t *ptr_ftl_context, uin
 
 void update_max_min_nr_erase_cnt_in_pool(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, int pool, int type, int min_max)
 {
-
+    if (ptr_target_block == NULL)
+    {
+        printf("update_max_min_nr_erase_cnt_in_pool NULL\n");
+        exit(1);
+    }
     if (pool == HOT_POOL)
     {
         if (type == EC)
