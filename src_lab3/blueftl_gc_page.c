@@ -164,12 +164,13 @@ int32_t gc_page_trigger_gc_lab(
 		}
 	}
 
+	printf("gc");
+
 	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_victim_block);
 
-/*	if (check_cold_data_migration(ptr_ftl_context) == TRUE)
+	if (check_cold_data_migration(ptr_ftl_context) == TRUE)
 		cold_data_migration(ptr_ftl_context);
-	update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context);
-	if (check_cold_pool_adjustment(ptr_ftl_context) == TRUE)
+/*	if (check_cold_pool_adjustment(ptr_ftl_context) == TRUE)
 		cold_pool_adjustment(ptr_ftl_context);
 	if (check_hot_pool_adjustment(ptr_ftl_context) == TRUE)
 		hot_pool_adjustment(ptr_ftl_context);

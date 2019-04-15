@@ -44,10 +44,10 @@ struct flash_block_t {
 	uint32_t nr_recent_erase_cnt;
 
 	/* for dual-pool algorithm, head, tail flag of erasure count list*/
-	uint32_t head_or_tail_ec;
+	uint32_t head_or_tail_ec_not_used;
 
 	/* for dual-pool algorithm, head, tail flag of recent erasure count list */
-	uint32_t head_or_tail_rec;
+	uint32_t head_or_tail_rec_not_used;
 
 	/* for dual-pool algorithm, flag hot cold pool */
 	uint32_t hot_cold_pool;

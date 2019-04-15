@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -50,52 +51,53 @@ bool check_cold_data_migration()
 
 void check_max_min_nr_erase_cnt(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_erase_block)
 {
+    printf("wl\n");
     if (ptr_erase_block->hot_cold_pool == HOT_POOL)
     {
-        if (g_min_ec_in_hot_pool.nr_erase_cnt > ptr_erase_block->nr_erase_cnt) // max값 changed, ec TAIL in hot pool change
+        if (g_min_ec_in_hot_pool.nr_erase_cnt > ptr_erase_block->nr_erase_cnt)
         {
             update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, EC, MIN);
-            ptr_erase_block->head_or_tail_ec = TAIL;
+            g_min_ec_in_hot_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
-        else if (g_max_ec_in_hot_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt) // min값 changed, ec HEAD in hot pool change
+        else if (g_max_ec_in_hot_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt)
         {
-            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, EC, MIN);
-            ptr_erase_block->head_or_tail_ec = HEAD;
+            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, EC, MAX);
+            g_max_ec_in_hot_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
 
-        if (g_min_rec_in_hot_pool.nr_erase_cnt > ptr_erase_block->nr_erase_cnt) // max값 changed, rec TAIL in hot pool change
+        if (g_min_rec_in_hot_pool.nr_erase_cnt > ptr_erase_block->nr_erase_cnt)
         {
-            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, EC, MIN);
-            ptr_erase_block->head_or_tail_rec = TAIL;
+            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, REC, MIN);
+            g_min_rec_in_hot_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
-        else if (g_max_rec_in_hot_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt) // min값 changed, rec HEAD in hot pool change
+        else if (g_max_rec_in_hot_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt)
         {
-            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, EC, MIN);
-            ptr_erase_block->head_or_tail_rec = HEAD;
+            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, REC, MAX);
+            g_max_rec_in_hot_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
     }
     else // COLD_POOL
     {
-        if (g_min_ec_in_cold_pool.nr_erase_cnt > ptr_erase_block->nr_erase_cnt) // max값 changed, ec TAIL in hot pool change
+        if (g_min_ec_in_cold_pool.nr_erase_cnt > ptr_erase_block->nr_erase_cnt)
         {
-            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, EC, MIN);
-            ptr_erase_block->head_or_tail_ec = TAIL;
+            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, COLD_POOL, EC, MIN);
+            g_min_ec_in_cold_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
-        else if (g_min_ec_in_cold_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt) // min값 changed, ec HEAD in hot pool change
+        else if (g_min_ec_in_cold_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt)
         {
-            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, EC, MIN);
-            ptr_erase_block->head_or_tail_ec = HEAD;
+            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, COLD_POOL, EC, MAX);
+            g_min_ec_in_cold_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
 
-        if (g_min_rec_in_cold_pool.nr_erase_cnt > ptr_erase_block->nr_erase_cnt) // max값 changed, rec TAIL in hot pool change
+        if (g_min_rec_in_cold_pool.nr_erase_cnt > ptr_erase_block->nr_erase_cnt)
         {
-            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, EC, MIN);
-            ptr_erase_block->head_or_tail_rec = TAIL;
+            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, COLD_POOL, REC, MIN);
+            g_min_rec_in_cold_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
-        else if (g_min_rec_in_cold_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt) // min값 changed, rec HAID in hot pool change
+        else if (g_min_rec_in_cold_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt)
         {
-            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, HOT_POOL, EC, MIN);
-            ptr_erase_block->head_or_tail_rec = HEAD;
+            update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, COLD_POOL, REC, MAX);
+            g_min_rec_in_cold_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
     }
 }
@@ -116,21 +118,16 @@ struct flash_block_t *get_erase_blk_ptr(struct ftl_context_t *ptr_ftl_context, u
 {
 }
 
-/*
-bool block_copy(struct flash_block_t *ptr_src_block, struct flash_block_t *ptr_tgt_block, struct ftl_context_t *ptr_ftl_context)
-{
-}
-*/
-
 int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
 {
     struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
     struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
 
-    //prepare buffers
+    // prepare buffers
     uint8_t *ptr_block_buff1 = NULL;
     uint8_t *ptr_block_buff2 = NULL;
 
+    /* block의 데이터 보관할 buffer 선언 및 할당 */
     if ((ptr_block_buff1 = (uint8_t *)malloc(ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size)) == NULL)
     {
         printf("blueftl_cold_migration: the memory allocation for the merge buffer1 failed (%u)\n",
@@ -147,51 +144,63 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     }
     memset(ptr_block_buff2, 0xFF, ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size);
 
-    if(block_valid_copy(ptr_ftl_context, ptr_ftl_context->ec_head_hot_block, ptr_block_buff1))                         //copying valid data of oldest hot block to buffer
+    /* buffer로 block의 데이터 copy */
+    if (!block_valid_copy(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head, ptr_block_buff1)) // copying valid data of oldest hot block to buffer
     {
         printf("cold mig hot head block copy to buffer failed\n");
-    return -1;
+        return -1;
     }
-    if(block_valid_copy(ptr_ftl_context, ptr_ftl_context->ec_head_cold_block, ptr_block_buff1))                              //copying valid data of youngest cold block to buffer
+    if (!block_valid_copy(ptr_ftl_context, ptr_ftl_context->cold_block_ec_head, ptr_block_buff1)) // copying valid data of youngest cold block to buffer
     {
         printf("cold mig cold head block copy to buffer failed\n");
-    return -1;
-    }             
-    if(page_clean_in_block(ptr_ftl_context, ptr_ftl_context->ec_head_hot_block))
-    {                  //erase hot pool oldest block
+        return -1;
+    }
+
+    /* head blocks (cold & hot) 삭제 */
+    if (!page_clean_in_block(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head))
+    { // erase hot pool oldest block
         printf("cold mig hot head block clean failed\n");
-    return -1;
+        return -1;
     }
-    if(page_clean_in_block(ptr_ftl_context, ptr_ftl_context->ec_head_cold_block))
-    {                 //erase cold pool youngest block
+    if (!page_clean_in_block(ptr_ftl_context, ptr_ftl_context->cold_block_ec_head))
+    { // erase cold pool youngest block
         printf("cold mig cold head block clean failed\n");
-    return -1;
+        return -1;
     }
-    if(write_buffer_to_block(ptr_ftl_context, ptr_ftl_context->ec_head_hot_block, ptr_block_buff2))
+
+    /* cold block <-> hot block data swap  */
+    if (!write_buffer_to_block(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head, ptr_block_buff2))
     {
-        printf("cold mig hot head block copy from buffer failed\n");                //write data in buffer to oldest_hot_block
-    return -1;
+        printf("cold mig hot head block copy from buffer failed\n"); //write data in buffer to oldest_hot_block
+        return -1;
     }
-    if(write_buffer_to_block(ptr_ftl_context, ptr_ftl_context->ec_head_cold_block, ptr_block_buff1))
-    {             //write data in buffer to youngest_cold_block
-        printf("cold mig hot head block copy from buffer failed\n");    
-    return -1;
+    if (!write_buffer_to_block(ptr_ftl_context, ptr_ftl_context->cold_block_ec_head, ptr_block_buff1))
+    { //write data in buffer to youngest_cold_block
+        printf("cold mig hot head block copy from buffer failed\n");
+        return -1;
     }
-    if(rec_reset(ptr_ftl_context))
+
+    /* cold pool로 이동할 hot head block의 rec값 초기화 -> only cold pool */
+    if (!rec_reset(ptr_ftl_context))
     {
-        printf("cold mig rec reset failed\n");                //write data in buffer to oldest_hot_block
-    return -1;
+        printf("cold mig rec reset failed\n"); //write data in buffer to oldest_hot_block
+        return -1;
     }
-    if(block_pool_swap(ptr_ftl_context)) // swap two blocks. to the pool tail
-    {
-        printf("cold mig swap failed\n");                
-    return -1;
-    }
-    if(find_new_heads(ptr_ftl_context)) // find new heads for two pools
+
+    /* block들의 pool 위치 변경 */
+    if (!block_pool_swap(ptr_ftl_context)) // swap two blocks. to the pool tail
     {
         printf("cold mig swap failed\n");
-    return -1;
-    }    
+        return -1;
+    }
+
+    /* find new head for each pools */
+    if (!find_new_heads(ptr_ftl_context)) // find new heads for two pools
+    {
+        printf("finding new hot pool head failed\n");
+        return -1;
+    }
+
     return 0;
 }
 
@@ -201,6 +210,12 @@ bool block_valid_copy(struct ftl_context_t *ptr_ftl_context, struct flash_block_
     uint8_t *ptr_page_buff = NULL;
     struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
     struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
+
+    if (ptr_target_block == NULL)
+    {
+        printf("Invalid ptr_target_block in block_valid_copy() !!\n");
+        return false;
+    }
 
     for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++)
     {
@@ -216,17 +231,23 @@ bool block_valid_copy(struct ftl_context_t *ptr_ftl_context, struct flash_block_
                 (char *)ptr_page_buff);
         }
     }
-    return 0;
+    return true;
 }
 
 bool page_clean_in_block(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block)
 {
     struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
 
+    if (ptr_target_block == NULL)
+    {
+        printf("Invalid ptr_target_block in block_valid_copy() !!\n");
+        return false;
+    }
+
     blueftl_user_vdevice_block_erase(ptr_vdevice, ptr_target_block->no_bus, ptr_target_block->no_chip, ptr_target_block->no_block);
     ptr_target_block->nr_erase_cnt++;
     ptr_target_block->nr_recent_erase_cnt++; //어차피 초기화 될 예정이긴 한데..
-    return 0;
+    return true;
 }
 
 bool write_buffer_to_block(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, uint8_t *ptr_block_buff)
@@ -235,6 +256,13 @@ bool write_buffer_to_block(struct ftl_context_t *ptr_ftl_context, struct flash_b
     uint8_t *ptr_page_buff = NULL;
     struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
     struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
+
+    if (ptr_target_block == NULL)
+    {
+        printf("Invalid ptr_target_block in block_valid_copy() !!\n");
+        return false;
+    }
+
     for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++)
     {
         if (ptr_target_block->list_pages[loop_page].page_status == 3)
@@ -243,35 +271,43 @@ bool write_buffer_to_block(struct ftl_context_t *ptr_ftl_context, struct flash_b
 
             blueftl_user_vdevice_page_write(
                 ptr_vdevice,
-                ptr_target_block->no_bus,  ptr_target_block->no_chip,  ptr_target_block->no_block, loop_page,
+                ptr_target_block->no_bus, ptr_target_block->no_chip, ptr_target_block->no_block, loop_page,
                 ptr_vdevice->page_main_size,
                 (char *)ptr_page_buff);
         }
     }
-    return 0;
+    return true;
 }
 
 bool rec_reset(struct ftl_context_t *ptr_ftl_context)
 {
-    ptr_ftl_context->ec_head_hot_block->nr_recent_erase_cnt = 0;
-    return 0;
+    ptr_ftl_context->hot_block_ec_head->nr_recent_erase_cnt = 0;
+    return true;
 }
 
 bool block_pool_swap(struct ftl_context_t *ptr_ftl_context)
 {
     //여기서 if 인 이유: tail이 최대/최소를 갖도록 하기 위해
-    if (ptr_ftl_context->ec_head_hot_block->nr_erase_cnt > ptr_ftl_context->ec_tail_cold_block->nr_erase_cnt)
-        ptr_ftl_context->ec_tail_cold_block = ptr_ftl_context->ec_head_hot_block;
-    if (ptr_ftl_context->ec_head_cold_block->nr_erase_cnt < ptr_ftl_context->ec_tail_hot_block->nr_erase_cnt)
-        ptr_ftl_context->ec_tail_hot_block = ptr_ftl_context->ec_head_cold_block;
-    return 0;
+    if (ptr_ftl_context->hot_block_ec_head->nr_erase_cnt > ptr_ftl_context->cold_block_ec_tail->nr_erase_cnt) {
+        ptr_ftl_context->cold_block_ec_tail = ptr_ftl_context->hot_block_ec_head; // hot pool의 head -> cold pool의 tail로 이동
+        ptr_ftl_context->hot_block_ec_head = NULL; // 기존 hot pool의 head 초기화
+        ptr_ftl_context->cold_block_ec_tail->hot_cold_pool = COLD_POOL;
+    }
+
+    if (ptr_ftl_context->cold_block_ec_head->nr_erase_cnt < ptr_ftl_context->hot_block_ec_tail->nr_erase_cnt) {
+        ptr_ftl_context->hot_block_ec_tail = ptr_ftl_context->cold_block_ec_head; // cold pool의 head -> hot pool의 head로 이동
+        ptr_ftl_context->cold_block_ec_head = NULL; // 기존 cold pool의 head 초기화
+        ptr_ftl_context->hot_block_ec_tail->hot_cold_pool = HOT_POOL;
+    }
+
+    return true;
 }
 
 bool find_new_heads(struct ftl_context_t *ptr_ftl_context)
 {
     //전체를 뒤져서 새로운 head를 찾아야 함. 전체 탐색 과정은 어떤 순서일지라도 어쩔 수 없이 포함되긴 해야 하는 듯.
     struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
-     struct flash_block_t *ptr_block = NULL;
+    struct flash_block_t *ptr_block = NULL;
     uint32_t ec_max = 0;
     uint32_t ec_min = -1;
     int i, j, k;
@@ -283,20 +319,24 @@ bool find_new_heads(struct ftl_context_t *ptr_ftl_context)
             for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
             {
                 ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
-                if (ptr_block->nr_erase_cnt > ec_max)
+                if (ptr_block->hot_cold_pool == HOT_POOL)
                 {
-                    ec_max = ptr_block->nr_erase_cnt;
-                    ptr_ftl_context->ec_head_hot_block = ptr_block;
-                }
-                if (ptr_block->nr_erase_cnt < ec_min)
-                {
-                    ec_min = ptr_block->nr_erase_cnt;
-                    ptr_ftl_context->ec_head_cold_block = ptr_block;
+                    if (ptr_block->nr_erase_cnt > ec_max)
+                    {
+                        ec_max = ptr_block->nr_erase_cnt;
+                        ptr_ftl_context->hot_block_ec_head = ptr_block;
+                    }
+                } else { // ptr_block in cold pool
+                    if (ptr_block->nr_erase_cnt < ec_min)
+                    {
+                        ec_min = ptr_block->nr_erase_cnt;
+                        ptr_ftl_context->cold_block_ec_head = ptr_block;
+                    }
                 }
             }
         }
     }
-    return 0;
+    return true;
 }
 
 void insert_pool(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_erase_block)
@@ -326,24 +366,24 @@ void update_max_min_nr_erase_cnt_in_pool(struct ftl_context_t *ptr_ftl_context, 
     {
         if (type == EC)
         {
-            if (min_max == MIN) // EC MIN
+            if (min_max == MIN) // HOT EC MIN
             {
-                ptr_ftl_context->ec_tail_hot_block = ptr_target_block;
+                ptr_ftl_context->hot_block_ec_tail = ptr_target_block;
             }
-            else // EC MAX
+            else // HOT EC MAX
             {
-                ptr_ftl_context->ec_head_hot_block = ptr_target_block;
+                ptr_ftl_context->hot_block_ec_head = ptr_target_block;
             }
         }
         else
         {
-            if (min_max == MIN) // REC MIN
+            if (min_max == MIN) // HOT REC MIN
             {
-                ptr_ftl_context->rec_tail_hot_block = ptr_target_block;
+                ptr_ftl_context->hot_block_rec_tail = ptr_target_block;
             }
-            else //REC MAX
+            else // HOT REC MAX
             {
-                ptr_ftl_context->rec_head_hot_block = ptr_target_block;
+                ptr_ftl_context->hot_block_rec_head = ptr_target_block;
             }
         }
     }
@@ -352,228 +392,25 @@ void update_max_min_nr_erase_cnt_in_pool(struct ftl_context_t *ptr_ftl_context, 
     {
         if (type == EC)
         {
-            if (min_max == MIN) // EC MIN
+            if (min_max == MIN) // COLD EC MIN
             {
-                ptr_ftl_context->ec_head_cold_block = ptr_target_block;
+                ptr_ftl_context->cold_block_ec_head = ptr_target_block;
             }
-            else // EC MAX
+            else // COLD EC MAX
             {
-                ptr_ftl_context->ec_tail_cold_block = ptr_target_block;
+                ptr_ftl_context->cold_block_ec_tail = ptr_target_block;
             }
         }
         else
         {
-            if (min_max == MIN) // REC MIN
+            if (min_max == MIN) // COLD REC MIN
             {
-                ptr_ftl_context->rec_head_cold_block = ptr_target_block;
+                ptr_ftl_context->cold_block_rec_head = ptr_target_block;
             }
-            else //REC MAX
+            else // COLD REC MAX
             {
-                ptr_ftl_context->ec_tail_cold_block = ptr_target_block;
+                ptr_ftl_context->cold_block_rec_tail = ptr_target_block;
             }
         }
     }
 }
-
-// uint32_t update_max_min_nr_erase_cnt_in_pool_org(struct ftl_context_t *ptr_ftl_context, int pool, int type, int min_max, int bus, int chip, int block, uint32_t nr_erase_cnt)
-// {
-//     int i, j, k;
-//     struct flash_block_t *ptr_block = NULL;
-//     struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
-
-//     if (pool == HOT_POOL)
-//     {
-//         if (type == EC)
-//         {
-//             if (min_max == MIN) // EC MIN
-//             {
-//                 g_min_ec_in_hot_pool.no_bus = bus;
-//                 g_min_ec_in_hot_pool.no_chip = chip;
-//                 g_min_ec_in_hot_pool.no_block = block;
-//                 g_min_ec_in_hot_pool.nr_erase_cnt = nr_erase_cnt;
-
-//                 if ()
-//                     for (i = 0; i < ptr_ssd->nr_buses; i++)
-//                     {
-//                         for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
-//                         {
-//                             for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
-//                             {
-//                                 ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
-//                                 if (IS_TAIL(ptr_block->head_or_tail_ec))
-//                                 {
-//                                     DISABLE_TAIL(ptr_block->head_or_tail_ec); // 기존 EC TAIL 해제
-//                                 }
-//                             }
-//                         }
-//                     }
-//             }
-//             else
-//             { // EC MAX
-//                 g_max_ec_in_hot_pool.no_bus = bus;
-//                 g_max_ec_in_hot_pool.no_chip = chip;
-//                 g_max_ec_in_hot_pool.no_block = block;
-//                 g_max_ec_in_hot_pool.nr_erase_cnt = nr_erase_cnt;
-
-//                 for (i = 0; i < ptr_ssd->nr_buses; i++)
-//                 {
-//                     for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
-//                     {
-//                         for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
-//                         {
-//                             ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
-//                             if (IS_HEAD(ptr_block->head_or_tail_ec))
-//                             {
-//                                 DISABLE_HEAD(ptr_block->head_or_tail_ec); // 기존 EC HEAD 해제
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//         else
-//         {                       // REC
-//             if (min_max == MIN) // REC MIN
-//             {
-//                 g_min_rec_in_hot_pool.no_bus = bus;
-//                 g_min_rec_in_hot_pool.no_chip = chip;
-//                 g_min_rec_in_hot_pool.no_block = block;
-//                 g_min_rec_in_hot_pool.nr_erase_cnt = nr_erase_cnt;
-
-//                 for (i = 0; i < ptr_ssd->nr_buses; i++)
-//                 {
-//                     for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
-//                     {
-//                         for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
-//                         {
-//                             ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
-//                             if (IS_TAIL(ptr_block->head_or_tail_rec))
-//                             {
-//                                 DISABLE_TAIL(ptr_block->head_or_tail_rec); // 기존 REC TAIL 해제
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//             else
-//             { // REC MAX
-//                 g_min_rec_in_hot_pool.no_bus = bus;
-//                 g_min_rec_in_hot_pool.no_chip = chip;
-//                 g_min_rec_in_hot_pool.no_block = block;
-//                 g_min_rec_in_hot_pool.nr_erase_cnt = nr_erase_cnt;
-
-//                 for (i = 0; i < ptr_ssd->nr_buses; i++)
-//                 {
-//                     for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
-//                     {
-//                         for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
-//                         {
-//                             ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
-//                             if (IS_HEAD(ptr_block->head_or_tail_rec))
-//                             {
-//                                 DISABLE_HEAD(ptr_block->head_or_tail_rec); // 기존 REC HEAD 해제
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//     }
-//     else
-//     { // COLD_POOL
-//         if (type == EC)
-//         {
-//             if (min_max == MIN) // EC MIN
-//             {
-//                 g_min_ec_in_cold_pool.no_bus = bus;
-//                 g_min_ec_in_cold_pool.no_chip = chip;
-//                 g_min_ec_in_cold_pool.no_block = block;
-//                 g_min_ec_in_cold_pool.nr_erase_cnt = nr_erase_cnt;
-
-//                 for (i = 0; i < ptr_ssd->nr_buses; i++)
-//                 {
-//                     for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
-//                     {
-//                         for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
-//                         {
-//                             ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
-//                             if (IS_TAIL(ptr_block->head_or_tail_ec))
-//                             {
-//                                 DISABLE_TAIL(ptr_block->head_or_tail_ec); // 기존 EC TAIL 해제
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//             else
-//             { // EC MAX
-//                 g_min_ec_in_cold_pool.no_bus = bus;
-//                 g_min_ec_in_cold_pool.no_chip = chip;
-//                 g_min_ec_in_cold_pool.no_block = block;
-//                 g_min_ec_in_cold_pool.nr_erase_cnt = nr_erase_cnt;
-
-//                 for (i = 0; i < ptr_ssd->nr_buses; i++)
-//                 {
-//                     for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
-//                     {
-//                         for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
-//                         {
-//                             ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
-//                             if (IS_HEAD(ptr_block->head_or_tail_ec))
-//                             {
-//                                 DISABLE_HEAD(ptr_block->head_or_tail_ec); // 기존 EC HEAD 해제
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//         else // REC
-//         {
-//             if (min_max == MIN) // REC MIN
-//             {
-//                 g_min_rec_in_cold_pool.no_bus = bus;
-//                 g_min_rec_in_cold_pool.no_chip = chip;
-//                 g_min_rec_in_cold_pool.no_block = block;
-//                 g_min_rec_in_cold_pool.nr_erase_cnt = nr_erase_cnt;
-
-//                 for (i = 0; i < ptr_ssd->nr_buses; i++)
-//                 {
-//                     for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
-//                     {
-//                         for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
-//                         {
-//                             ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
-//                             if (IS_TAIL(ptr_block->head_or_tail_rec))
-//                             {
-//                                 DISABLE_TAIL(ptr_block->head_or_tail_rec); // 기존 REC TAIL 해제
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//             else
-//             { // REC MAX
-//                 g_min_rec_in_cold_pool.no_bus = bus;
-//                 g_min_rec_in_cold_pool.no_chip = chip;
-//                 g_min_rec_in_cold_pool.no_block = block;
-//                 g_min_rec_in_cold_pool.nr_erase_cnt = nr_erase_cnt;
-
-//                 for (i = 0; i < ptr_ssd->nr_buses; i++)
-//                 {
-//                     for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
-//                     {
-//                         for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
-//                         {
-//                             ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
-//                             if (IS_HEAD(ptr_block->head_or_tail_rec))
-//                             {
-//                                 DISABLE_HEAD(ptr_block->head_or_tail_rec); // 기존 REC HEAD 해제
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
