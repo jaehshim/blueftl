@@ -127,7 +127,7 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     uint8_t *ptr_block_buff2 = NULL;
 
     /* block의 데이터 보관할 buffer 선언 및 할당 */
-    //   printf("step 1\n");
+    //printf("step 1\n");
     if ((ptr_block_buff1 = (uint8_t *)malloc(ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size)) == NULL)
     {
         printf("blueftl_cold_migration: the memory allocation for the merge buffer1 failed (%u)\n",
@@ -145,7 +145,7 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     memset(ptr_block_buff2, 0xFF, ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size);
 
     /* buffer로 block의 데이터 copy */
-    //   printf("step 2\n");
+    //printf("step 2\n");
     if (!block_valid_copy(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head, ptr_ftl_context->cold_block_ec_head, ptr_block_buff1, ptr_block_buff2)) // copying valid data of oldest hot block to buffer
     {
         printf("cold mig head blocks copy to buffer failed\n");
@@ -154,7 +154,7 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     }
 
     /* head blocks (cold & hot) 삭제 */
-    //   printf("step 3\n");
+    //printf("step 3\n");
     if (!page_clean_in_block(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head))
     { // erase hot pool oldest block
         printf("cold mig hot head block clean failed\n");
@@ -169,7 +169,7 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     }
 
     /* cold block <-> hot block data swap  */
-    //    printf("step 4\n");
+   // printf("step 4\n");
     if (!write_buffer_to_block(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head, ptr_block_buff2))
     {
         printf("cold mig hot head block copy from buffer failed\n"); //write data in buffer to oldest_hot_block
@@ -184,7 +184,7 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     }
 
     /* cold pool로 이동할 hot head block의 rec값 초기화 -> only cold pool */
-    //    printf("step 5\n");
+  //  printf("step 5\n");
     if (!rec_reset(ptr_ftl_context))
     {
         printf("cold mig rec reset failed\n"); //write data in buffer to oldest_hot_block
@@ -193,7 +193,7 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     }
 
     /* block들의 pool 위치 변경 */
-    //   printf("step 6\n");
+  //  printf("step 6\n");
     if (!block_pool_swap(ptr_ftl_context)) // swap two blocks. to the pool tail
     {
         printf("cold mig swap failed\n");
@@ -202,7 +202,7 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     }
 
     /* find new head for each pools */
-    //  printf("step 7\n");
+   // printf("step 7\n");
     if (!find_new_heads(ptr_ftl_context)) // find new heads for two pools
     {
         printf("finding new hot pool head failed\n");
@@ -224,17 +224,22 @@ bool block_valid_copy(struct ftl_context_t *ptr_ftl_context, struct flash_block_
 {
     uint32_t loop_page = 0;
     uint32_t valid_count = 0; //블록을 page별로 loop 하면서  valid page 개수 추적용
+    uint32_t valid_count_2 = 0; //블록을 page별로 loop 하면서  valid page 개수 추적용
     uint8_t *ptr_page_buff = NULL;
     uint32_t logical_page_address;
 
     struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
     struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
 
+    uint32_t logical_page_buffer1[ptr_ssd->nr_pages_per_block];
+    uint32_t logical_page_buffer2[ptr_ssd->nr_pages_per_block];
+
     if ((ptr_target_block1 == NULL) || (ptr_target_block2 == NULL))
     {
         printf("Invalid ptr_target_block in block_valid_copy() !!\n");
         return false;
     }
+    printf("block_valid_copy\n");
     if (ptr_target_block1->nr_valid_pages > 0)
     {
         for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++)
@@ -254,40 +259,40 @@ bool block_valid_copy(struct ftl_context_t *ptr_ftl_context, struct flash_block_
                     ptr_target_block1->no_chip,
                     ptr_target_block1->no_block,
                     loop_page,
-                    ptr_vdevice->page_main_size,
+                    FLASH_PAGE_SIZE,
                     (char *)ptr_page_buff);
 
-                // 원래 기존 ppa가 invalid 되면 안되는데 page_mapping_map_logical_to_physical함수 내부에서 기존 ppa status를 invalid로 만들어버림
-                page_mapping_map_logical_to_physical(
-                    ptr_ftl_context,
-                    logical_page_address,
-                    ptr_target_block2->no_bus,
-                    ptr_target_block2->no_chip,
-                    ptr_target_block2->no_block,
-                    valid_count);
-                  // printf("%d vaild cnt\n", valid_count);
-                   // exit(1);
+                logical_page_buffer1[valid_count] = logical_page_address;
+
+                // // 원래 기존 ppa가 invalid 되면 안되는데 page_mapping_map_logical_to_physical함수 내부에서 기존 ppa status를 invalid로 만들어버림
+                // page_mapping_map_logical_to_physical(
+                //     ptr_ftl_context,
+                //     logical_page_address,
+                //     ptr_target_block2->no_bus,
+                //     ptr_target_block2->no_chip,
+                //     ptr_target_block2->no_block,
+                //     valid_count);
+                // printf("%d vaild cnt\n", valid_count);
+                // exit(1);
                 // 그래서 복구가 필요함
-                ptr_target_block2->list_pages[valid_count].page_status = PAGE_STATUS_VALID;
+                //ptr_target_block2->list_pages[valid_count].page_status = PAGE_STATUS_VALID;
 
                 valid_count++;
             }
         }
+        ptr_target_block1->list_pages[loop_page].page_status = PAGE_STATUS_FREE;
     }
-    ptr_target_block2->nr_valid_pages = valid_count; //valid page 개수 재설정
 
-    *ptr_page_buff = NULL; // 버퍼 포인터 초기화
-    valid_count = 0;       // 카운터 초기화
+    ptr_page_buff = NULL; // 버퍼 포인터 초기화
 
-    if (1) //(ptr_target_block2->nr_valid_pages > 0)
+    if (ptr_target_block2->nr_valid_pages > 0)
     {
-
         for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++)
         {
             if (ptr_target_block2->list_pages[loop_page].page_status == PAGE_STATUS_VALID)
             {
                 // 버퍼 포인터 세팅
-                ptr_page_buff = ptr_block_buff2 + (valid_count * ptr_vdevice->page_main_size);
+                ptr_page_buff = ptr_block_buff2 + (valid_count_2 * ptr_vdevice->page_main_size);
 
                 // get a physical page address of the page to be copied.
                 logical_page_address = ptr_target_block2->list_pages[loop_page].no_logical_page_addr;
@@ -299,24 +304,53 @@ bool block_valid_copy(struct ftl_context_t *ptr_ftl_context, struct flash_block_
                     ptr_target_block2->no_chip,
                     ptr_target_block2->no_block,
                     loop_page,
-                    ptr_vdevice->page_main_size,
+                    FLASH_PAGE_SIZE,
                     (char *)ptr_page_buff);
-                // 원래 기존 ppa가 invalid 되면 안되는데 page_mapping_map_logical_to_physical함수 내부에서 기존 ppa status를 invalid로 만들어버림
 
-                page_mapping_map_logical_to_physical(
-                    ptr_ftl_context,
-                    logical_page_address,
-                    ptr_target_block1->no_bus,
-                    ptr_target_block1->no_chip,
-                    ptr_target_block1->no_block,
-                    valid_count);
+                logical_page_buffer1[valid_count_2] = logical_page_address;
+
+                // page_mapping_map_logical_to_physical(
+                //     ptr_ftl_context,
+                //     logical_page_address,
+                //     ptr_target_block1->no_bus,
+                //     ptr_target_block1->no_chip,
+                //     ptr_target_block1->no_block,
+                //     valid_count_2);
                 // 그래서 복구가 필요함
-                ptr_target_block2->list_pages[valid_count].page_status = PAGE_STATUS_VALID;
-                valid_count++;
+                //ptr_target_block2->list_pages[valid_count_2].page_status = PAGE_STATUS_VALID;
+                valid_count_2++;
             }
+            ptr_target_block2->list_pages[loop_page].page_status = PAGE_STATUS_FREE;
         }
     }
-    ptr_target_block1->nr_valid_pages = valid_count; //valid page 개수 재설정
+
+    for (loop_page = 0; loop_page < valid_count; loop_page++)
+    {
+        page_mapping_map_logical_to_physical(
+            ptr_ftl_context,
+            logical_page_buffer1[loop_page],
+            ptr_target_block2->no_bus,
+            ptr_target_block2->no_chip,
+            ptr_target_block2->no_block,
+            loop_page);
+        ptr_target_block2->list_pages[loop_page].page_status = PAGE_STATUS_VALID;
+    }
+
+    
+    for (loop_page = 0; loop_page < valid_count_2; loop_page++)
+    {
+        page_mapping_map_logical_to_physical(
+            ptr_ftl_context,
+            logical_page_buffer2[loop_page],
+            ptr_target_block1->no_bus,
+            ptr_target_block1->no_chip,
+            ptr_target_block1->no_block,
+            loop_page);
+        ptr_target_block1->list_pages[loop_page].page_status = PAGE_STATUS_VALID;
+    }
+
+    ptr_target_block1->nr_valid_pages = valid_count_2; //valid page 개수 재설정
+    ptr_target_block2->nr_valid_pages = valid_count; //valid page 개수 재설정
 
     return true;
 }
@@ -337,11 +371,14 @@ bool page_clean_in_block(struct ftl_context_t *ptr_ftl_context, struct flash_blo
         ptr_target_block->no_bus,
         ptr_target_block->no_chip,
         ptr_target_block->no_block);
+
+    perf_wl_inc_blk_erasures();
     // reset erased block
     ptr_target_block->nr_free_pages = ptr_ssd->nr_pages_per_block - ptr_target_block->nr_valid_pages;
     ptr_target_block->nr_invalid_pages = 0;
     ptr_target_block->nr_erase_cnt++;
     ptr_target_block->last_modified_time = 0;
+
     for (loop_page = 0; loop_page < ptr_target_block->nr_valid_pages; loop_page++) // valid page 갯수만큼 valid로 만들어줌
     {
         ptr_target_block->list_pages[loop_page].page_status = PAGE_STATUS_VALID;
@@ -351,6 +388,7 @@ bool page_clean_in_block(struct ftl_context_t *ptr_ftl_context, struct flash_blo
         ptr_target_block->list_pages[loop_page].no_logical_page_addr = -1;
         ptr_target_block->list_pages[loop_page].page_status = PAGE_STATUS_FREE;
     }
+
     return true;
 }
 
@@ -379,8 +417,10 @@ bool write_buffer_to_block(struct ftl_context_t *ptr_ftl_context, struct flash_b
             ptr_target_block->no_chip,
             ptr_target_block->no_block,
             loop_page,
-            ptr_vdevice->page_main_size,
+            FLASH_PAGE_SIZE,
             (char *)ptr_page_buff);
+
+        perf_wl_inc_page_copies();
     }
 
     return true;
@@ -443,7 +483,7 @@ bool find_new_heads(struct ftl_context_t *ptr_ftl_context)
 
                 if (ptr_block->hot_cold_pool == HOT_POOL)
                 {
-                    if (ptr_block->nr_erase_cnt > ec_max)
+                    if (ptr_block->nr_erase_cnt > ec_max && ptr_block->is_reserved_block == 0)
                     {
                         ec_max = ptr_block->nr_erase_cnt;
                         max_k = k;
@@ -451,7 +491,7 @@ bool find_new_heads(struct ftl_context_t *ptr_ftl_context)
                 }
                 else
                 { // ptr_block in cold pool
-                    if (ptr_block->nr_erase_cnt < ec_min)
+                    if (ptr_block->nr_erase_cnt < ec_min && ptr_block->is_reserved_block == 0)
                     {
                         ec_min = ptr_block->nr_erase_cnt;
                         min_k = k;
@@ -465,12 +505,12 @@ bool find_new_heads(struct ftl_context_t *ptr_ftl_context)
 
     if (ptr_ftl_context->cold_block_ec_head->hot_cold_pool == HOT_POOL)
     {
-        printf("Wrong Classification\n");
+        printf("Cold Pool Wrong Classification %d\n", min_k);
         exit(1);
     }
     if (ptr_ftl_context->hot_block_ec_head->hot_cold_pool == COLD_POOL)
     {
-        printf("Wrong Classification\n");
+        printf("Hot Pool Wrong Classification %d\n", max_k);
         exit(1);
     }
     return true;
