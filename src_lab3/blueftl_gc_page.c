@@ -293,16 +293,17 @@ int32_t gc_page_trigger_gc_lab (
 	ptr_gc_block->is_reserved_block = 0;
 
 
-/*	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_victim_block);
+	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_victim_block);
 
 	if (check_cold_data_migration())
 		cold_data_migration(ptr_ftl_context);
-	if (check_cold_pool_adjustment())
-		cold_pool_adjustment(ptr_ftl_context);
-	if (check_hot_pool_adjustment())
-		hot_pool_adjustment(ptr_ftl_context);
 
-*/
+	// if (check_cold_pool_adjustment())
+	// 	cold_pool_adjustment(ptr_ftl_context);
+	// if (check_hot_pool_adjustment())
+	// 	hot_pool_adjustment(ptr_ftl_context);
+
+
 
 	return ret;
 }

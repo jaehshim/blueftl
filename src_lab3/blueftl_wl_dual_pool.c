@@ -146,15 +146,9 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
 
     /* buffer로 block의 데이터 copy */
     //   printf("step 2\n");
-    if (!block_valid_copy(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head, ptr_block_buff1)) // copying valid data of oldest hot block to buffer
+    if (!block_valid_copy(ptr_ftl_context, ptr_ftl_context->hot_block_ec_head, ptr_ftl_context->cold_block_ec_head, ptr_block_buff1, ptr_block_buff2)) // copying valid data of oldest hot block to buffer
     {
-        printf("cold mig hot head block copy to buffer failed\n");
-        exit(1);
-        return -1;
-    }
-    if (!block_valid_copy(ptr_ftl_context, ptr_ftl_context->cold_block_ec_head, ptr_block_buff2)) // copying valid data of youngest cold block to buffer
-    {
-        printf("cold mig cold head block copy to buffer failed\n");
+        printf("cold mig head blocks copy to buffer failed\n");
         exit(1);
         return -1;
     }
@@ -226,78 +220,169 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
     return 0;
 }
 
-bool block_valid_copy(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, uint8_t *ptr_block_buff)
+bool block_valid_copy(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block1, struct flash_block_t *ptr_target_block2, uint8_t *ptr_block_buff1, uint8_t *ptr_block_buff2)
 {
     uint32_t loop_page = 0;
+    uint32_t valid_count = 0; //블록을 page별로 loop 하면서  valid page 개수 추적용
     uint8_t *ptr_page_buff = NULL;
+    uint32_t logical_page_address;
+
     struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
     struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
 
-    if (ptr_target_block == NULL)
+    if ((ptr_target_block1 == NULL) || (ptr_target_block2 == NULL))
     {
         printf("Invalid ptr_target_block in block_valid_copy() !!\n");
         return false;
     }
-
-    for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++)
+    if (ptr_target_block1->nr_valid_pages > 0)
     {
-        if (ptr_target_block->list_pages[loop_page].page_status == 3)
+        for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++)
         {
-            /* read the valid page data from the flash memory */
-            ptr_page_buff = ptr_block_buff + (loop_page * ptr_vdevice->page_main_size);
+            if (ptr_target_block1->list_pages[loop_page].page_status == PAGE_STATUS_VALID)
+            {
+                // 버퍼 포인터 세팅
+                ptr_page_buff = ptr_block_buff1 + (valid_count * ptr_vdevice->page_main_size);
 
-            blueftl_user_vdevice_page_read(
-                _ptr_vdevice,
-                ptr_target_block->no_bus, ptr_target_block->no_chip, ptr_target_block->no_block, loop_page,
-                ptr_vdevice->page_main_size,
-                (char *)ptr_page_buff);
+                // get a logical page address of the page to be copied.
+                logical_page_address = ptr_target_block1->list_pages[loop_page].no_logical_page_addr;
+
+                // valid page만 차곡차곡 buffer에 저장하고, mapping table을 swap 대상 블락으로 바꿔줌
+                blueftl_user_vdevice_page_read(
+                    ptr_vdevice,
+                    ptr_target_block1->no_bus,
+                    ptr_target_block1->no_chip,
+                    ptr_target_block1->no_block,
+                    loop_page,
+                    ptr_vdevice->page_main_size,
+                    (char *)ptr_page_buff);
+
+                // 원래 기존 ppa가 invalid 되면 안되는데 page_mapping_map_logical_to_physical함수 내부에서 기존 ppa status를 invalid로 만들어버림
+                page_mapping_map_logical_to_physical(
+                    ptr_ftl_context,
+                    logical_page_address,
+                    ptr_target_block2->no_bus,
+                    ptr_target_block2->no_chip,
+                    ptr_target_block2->no_block,
+                    valid_count);
+                  // printf("%d vaild cnt\n", valid_count);
+                   // exit(1);
+                // 그래서 복구가 필요함
+                ptr_target_block2->list_pages[valid_count].page_status = PAGE_STATUS_VALID;
+
+                valid_count++;
+            }
         }
     }
+    ptr_target_block2->nr_valid_pages = valid_count; //valid page 개수 재설정
+
+    *ptr_page_buff = NULL; // 버퍼 포인터 초기화
+    valid_count = 0;       // 카운터 초기화
+
+    if (1) //(ptr_target_block2->nr_valid_pages > 0)
+    {
+
+        for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++)
+        {
+            if (ptr_target_block2->list_pages[loop_page].page_status == PAGE_STATUS_VALID)
+            {
+                // 버퍼 포인터 세팅
+                ptr_page_buff = ptr_block_buff2 + (valid_count * ptr_vdevice->page_main_size);
+
+                // get a physical page address of the page to be copied.
+                logical_page_address = ptr_target_block2->list_pages[loop_page].no_logical_page_addr;
+
+                // valid page만 차곡차곡 buffer에 저장하고, mapping table을  swap 대상 블락으로 바꿔줌
+                blueftl_user_vdevice_page_read(
+                    ptr_vdevice,
+                    ptr_target_block2->no_bus,
+                    ptr_target_block2->no_chip,
+                    ptr_target_block2->no_block,
+                    loop_page,
+                    ptr_vdevice->page_main_size,
+                    (char *)ptr_page_buff);
+                // 원래 기존 ppa가 invalid 되면 안되는데 page_mapping_map_logical_to_physical함수 내부에서 기존 ppa status를 invalid로 만들어버림
+
+                page_mapping_map_logical_to_physical(
+                    ptr_ftl_context,
+                    logical_page_address,
+                    ptr_target_block1->no_bus,
+                    ptr_target_block1->no_chip,
+                    ptr_target_block1->no_block,
+                    valid_count);
+                // 그래서 복구가 필요함
+                ptr_target_block2->list_pages[valid_count].page_status = PAGE_STATUS_VALID;
+                valid_count++;
+            }
+        }
+    }
+    ptr_target_block1->nr_valid_pages = valid_count; //valid page 개수 재설정
+
     return true;
 }
 
 bool page_clean_in_block(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block)
 {
     struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
+    struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
+    int loop_page;
 
     if (ptr_target_block == NULL)
     {
         printf("Invalid ptr_target_block in page_clean_in_block() !!\n");
         return false;
     }
-
-    blueftl_user_vdevice_block_erase(ptr_vdevice, ptr_target_block->no_bus, ptr_target_block->no_chip, ptr_target_block->no_block);
+    blueftl_user_vdevice_block_erase(
+        ptr_vdevice,
+        ptr_target_block->no_bus,
+        ptr_target_block->no_chip,
+        ptr_target_block->no_block);
+    // reset erased block
+    ptr_target_block->nr_free_pages = ptr_ssd->nr_pages_per_block - ptr_target_block->nr_valid_pages;
+    ptr_target_block->nr_invalid_pages = 0;
     ptr_target_block->nr_erase_cnt++;
-    ptr_target_block->nr_recent_erase_cnt++; //어차피 초기화 될 예정이긴 한데..
+    ptr_target_block->last_modified_time = 0;
+    for (loop_page = 0; loop_page < ptr_target_block->nr_valid_pages; loop_page++) // valid page 갯수만큼 valid로 만들어줌
+    {
+        ptr_target_block->list_pages[loop_page].page_status = PAGE_STATUS_VALID;
+    }
+    for (loop_page = ptr_target_block->nr_valid_pages; loop_page < ptr_ssd->nr_pages_per_block; loop_page++) // valid page 갯수 이후부터 전부 free로 만들어줌
+    {
+        ptr_target_block->list_pages[loop_page].no_logical_page_addr = -1;
+        ptr_target_block->list_pages[loop_page].page_status = PAGE_STATUS_FREE;
+    }
     return true;
 }
 
 bool write_buffer_to_block(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, uint8_t *ptr_block_buff)
 {
+
     uint32_t loop_page = 0;
     uint8_t *ptr_page_buff = NULL;
-    struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
+
     struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
 
-    if (ptr_target_block == NULL)
+    if ((ptr_target_block == NULL))
     {
-        printf("Invalid ptr_target_block in write_buffer_to_block() !!\n");
+        printf("Invalid ptr_target_block in block_valid_copy() !!\n");
         return false;
     }
-
-    for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++)
+    for (loop_page = 0; loop_page < ptr_target_block->nr_valid_pages; loop_page++)
     {
-        if (ptr_target_block->list_pages[loop_page].page_status == 3)
-        {
-            ptr_page_buff = ptr_block_buff + (loop_page * ptr_vdevice->page_main_size);
 
-            blueftl_user_vdevice_page_write(
-                ptr_vdevice,
-                ptr_target_block->no_bus, ptr_target_block->no_chip, ptr_target_block->no_block, loop_page,
-                ptr_vdevice->page_main_size,
-                (char *)ptr_page_buff);
-        }
+        // 버퍼 포인터 세팅
+        ptr_page_buff = ptr_block_buff + (loop_page * ptr_vdevice->page_main_size);
+
+        blueftl_user_vdevice_page_write(
+            ptr_vdevice,
+            ptr_target_block->no_bus,
+            ptr_target_block->no_chip,
+            ptr_target_block->no_block,
+            loop_page,
+            ptr_vdevice->page_main_size,
+            (char *)ptr_page_buff);
     }
+
     return true;
 }
 
@@ -314,7 +399,7 @@ bool block_pool_swap(struct ftl_context_t *ptr_ftl_context)
     {
         ptr_ftl_context->cold_block_ec_tail = ptr_ftl_context->hot_block_ec_head; // hot pool의 head -> cold pool의 tail로 이동
         ptr_ftl_context->cold_block_ec_tail->hot_cold_pool = COLD_POOL;
-        ptr_ftl_context->hot_block_ec_head = NULL;                                // 기존 hot pool의 head 초기화
+        ptr_ftl_context->hot_block_ec_head = NULL; // 기존 hot pool의 head 초기화
     }
     else
     { // tail은 못 됐지만 cold pool에는 들어감
@@ -326,13 +411,12 @@ bool block_pool_swap(struct ftl_context_t *ptr_ftl_context)
     {
         ptr_ftl_context->hot_block_ec_tail = ptr_ftl_context->cold_block_ec_head; // cold pool의 head -> hot pool의 head로 이동
         ptr_ftl_context->hot_block_ec_tail->hot_cold_pool = HOT_POOL;
-        ptr_ftl_context->cold_block_ec_head = NULL;                               // 기존 cold pool의 head 초기화
+        ptr_ftl_context->cold_block_ec_head = NULL; // 기존 cold pool의 head 초기화
     }
     else
     {
         ptr_ftl_context->cold_block_ec_head = HOT_POOL;
         ptr_ftl_context->cold_block_ec_head = NULL; // 기존 cold pool의 head 초기화
-        
     }
 
     return true;
