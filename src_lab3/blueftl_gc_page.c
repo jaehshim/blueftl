@@ -1,184 +1,308 @@
-#ifdef KERNEL_MODE
-
-#include <linux/vmalloc.h>
-#include <time.h>
-#include <stdbool.h>
-
-#include "blueftl_ftl_base.h"
-#include "blueftl_mapping_page.h"
-#include "blueftl_gc_page.h"
-#include "blueftl_util.h"
-#include "blueftl_wl_dual_pool.h"
-
-#else
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <stdbool.h>
 
 #include "blueftl_ftl_base.h"
 #include "blueftl_mapping_page.h"
 #include "blueftl_gc_page.h"
 #include "blueftl_util.h"
 #include "blueftl_user_vdevice.h"
-#include "blueftl_wl_dual_pool.h"
 
-#endif
+unsigned char gc_buff[FLASH_PAGE_SIZE];
 
-
-void select_victim_block(struct flash_ssd_t * ptr_ssd, uint32_t victim_bus, uint32_t victim_chip, uint32_t * victim_block, int select_case)
+struct flash_block_t* gc_page_select_victim_random (
+	struct flash_ssd_t* ptr_ssd,
+	int32_t gc_target_bus, 
+	int32_t gc_target_chip)
 {
-	int i;
 	struct flash_block_t* ptr_victim_block = NULL;
-	uint32_t min, age, ctime;
-	double val, min_val, util;
-	switch (select_case)
+	uint32_t max_loop = 30;
+	uint32_t cur_loop;
+	uint32_t r_number;
+
+	/* choose the victim block with a random number */
+	for (cur_loop = 0; cur_loop < max_loop; cur_loop++) 
 	{
-	case 1: // Greedy
-		min = 200;
-		*victim_block = 0;
-		for (i = 0; i < ptr_ssd->nr_blocks_per_chip; i++)
+		r_number = timer_get_timestamp_in_us () %  ptr_ssd->nr_blocks_per_chip;
+
+		ptr_victim_block = 
+			&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[r_number]);
+
+		if (ptr_victim_block != NULL && ptr_victim_block->nr_invalid_pages > 0) 
 		{
-			ptr_victim_block = &ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[i];
-
-			if (ptr_victim_block->nr_free_pages == ptr_ssd->nr_pages_per_block)
-				continue;
-
-			if (min > ptr_victim_block->nr_valid_pages)
-			{
-				min = ptr_victim_block->nr_valid_pages;
-				*victim_block = i;
-			}
-		}
-		break;
-	case 2: // Random
-		srand(time(NULL));
-		*victim_block = rand() % ptr_ssd->nr_blocks_per_chip;
-		/* Avoid free block to be selected as victim */
-		while (ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[*victim_block].nr_free_pages == ptr_ssd->nr_pages_per_block) {
-			*victim_block = rand() % ptr_ssd->nr_blocks_per_chip;
-		}
-		break;
-
-	case 3: // Cost-Benefit
-		ctime = timer_get_timestamp_in_us();
-		min_val = (double)ctime;
-		*victim_block = 0;
-		for (i = 0; i < ptr_ssd->nr_blocks_per_chip; i++)
+			/* choose this block as a victim block */
+			break;
+		} 
+		else 
 		{
-			ptr_victim_block = &ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[i];
-
-			if (ptr_victim_block->nr_free_pages == ptr_ssd->nr_pages_per_block)
-				continue;
-
-			util = (double)ptr_victim_block->nr_valid_pages / ptr_ssd->nr_pages_per_block;
-			age = ctime - ptr_victim_block->last_modified_time;
-			val = (double)util / ((1-util) * age);
-			if (min_val > val)
-			{
-				min_val = val;
-				*victim_block = i;
-			}
+			/* hmmm... the victim block must have at least one invalid page,
+			   so we try victim selection with a different random number */
+			ptr_victim_block = NULL;
 		}
-		break;
-	default:
-		break;
 	}
+
+	/* if the victim block is not chosen, we do a full search */
+	if (ptr_victim_block == NULL) 
+	{
+		for (cur_loop = 0; cur_loop < ptr_ssd->nr_blocks_per_chip; cur_loop++) 
+		{
+			ptr_victim_block = 
+				&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[cur_loop]);
+
+			if (ptr_victim_block != NULL && ptr_victim_block->nr_invalid_pages > 0) 
+			{
+				break;
+			}	
+			else
+			{
+				ptr_victim_block = NULL;
+			}
+		}
+	}
+
+	/* TODO: need a way to handle such a case more nicely */
+	if (ptr_victim_block == NULL) {
+		printf ("blueftl_gc_page: oops! 'ptr_victim_block' is NULL.\nBlueFTL will die.\n");
+	}
+
+	/* return the victim block chosen */
+	return ptr_victim_block;
 }
 
-int32_t gc_page_trigger_gc_lab(
-	struct ftl_context_t *ptr_ftl_context,
-	uint32_t victim_bus,
-	uint32_t victim_chip)
+struct flash_block_t* gc_page_select_victim_greedy (
+	struct flash_ssd_t* ptr_ssd,
+	int32_t gc_target_bus, 
+	int32_t gc_target_chip)
 {
-	struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
-	struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
 	struct flash_block_t* ptr_victim_block = NULL;
 
-	uint8_t* ptr_page_buff = NULL;
-	uint32_t victim_block;
-	uint32_t loop_page = 0;
-	int32_t ret = 0;
+	uint32_t nr_max_invalid_pages = 0;
+	uint32_t nr_cur_invalid_pages;
+	uint32_t loop_block;
 
-	uint8_t* ptr_block_buff = NULL;
+	for (loop_block = 0; loop_block < ptr_ssd->nr_blocks_per_chip; loop_block++) 
+	{
+		nr_cur_invalid_pages = 
+			ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block].nr_invalid_pages;
 
-	select_victim_block(ptr_ssd, victim_bus, victim_chip, &victim_block, 3); // 1:Greedy, 2:Random, 3:Cost-Benefit
+		if (nr_cur_invalid_pages == ptr_ssd->nr_pages_per_block) 
+		{
+			// all the pages that belong to the block are invalid
+			ptr_victim_block = 
+				&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]); 
+			return ptr_victim_block;
+		}
 
-	/* get the victim block information */
-	if ((ptr_victim_block = &(ptr_ssd->list_buses[victim_bus].list_chips[victim_chip].list_blocks[victim_block])) == NULL) {
-		printf ("blueftl_gc_block: oops! 'ptr_victim_block' is NULL\n");
-		return -1;
-	}
-
-	/* allocate the memory for the block merge & memset buffer */
-	if ((ptr_block_buff = (uint8_t*)malloc (ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size)) == NULL) {
-		printf ("blueftl_gc_block: the memory allocation for the merge buffer failed (%u)\n",
-				ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size);
-		return -1;
-	}
-	memset (ptr_block_buff, 0xFF, ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size);
-
-	/* MERGE-STEP1: read all the valid pages from the target block */
-	for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++) {
-		if (ptr_victim_block->list_pages[loop_page].page_status == 3) { // new_page_offset not needed
-			/* read the valid page data from the flash memory */
-			ptr_page_buff = ptr_block_buff + (loop_page * ptr_vdevice->page_main_size);
-
-			blueftl_user_vdevice_page_read (
-				_ptr_vdevice,
-				victim_bus, victim_chip, victim_block, loop_page, 
-				ptr_vdevice->page_main_size,
-				(char*)ptr_page_buff);
-
-			perf_gc_inc_page_copies ();
+		if (nr_max_invalid_pages < nr_cur_invalid_pages) 
+		{
+			nr_max_invalid_pages = nr_cur_invalid_pages;
+			ptr_victim_block = 
+				&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]); 
 		}
 	}
 
-	/* MERGE-STEP3: erase the victim block */
-	blueftl_user_vdevice_block_erase (ptr_vdevice, victim_bus, victim_chip, victim_block);
-	ptr_victim_block->nr_erase_cnt++;
-	ptr_victim_block->nr_recent_erase_cnt++;
-	perf_gc_inc_blk_erasures ();
+	/* TODO: need a way to handle such a case more nicely */
+	if (ptr_victim_block == NULL) {
+		printf ("blueftl_gc_page: oops! 'ptr_victim_block' is NULL.\nBlueFTL will die.\n");
+	}
 
-	/* MERGE-STEP4: copy the data in the buffer to the block again */
-	for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++) {
-		if (ptr_victim_block->list_pages[loop_page].page_status == 3) { // new_page_offset not needed
-			ptr_page_buff = ptr_block_buff + (loop_page * ptr_vdevice->page_main_size);
+	return ptr_victim_block;
+}
 
-			blueftl_user_vdevice_page_write ( 
-					ptr_vdevice,
-					victim_bus, victim_chip, victim_block, loop_page, 
-					ptr_vdevice->page_main_size, 
-					(char*)ptr_page_buff);
+struct flash_block_t* gc_page_select_victim_cost_benefit (
+	struct flash_ssd_t* ptr_ssd,
+	int32_t gc_target_bus, 
+	int32_t gc_target_chip)
+{
+	struct flash_block_t* ptr_victim_block = NULL;
 
-			if (ptr_victim_block->list_pages[loop_page].page_status == 1) { // 사실 필요 없음
-				/* increase the number of valid pages in the block */
-				ptr_victim_block->nr_valid_pages++;
-				ptr_victim_block->nr_free_pages--;
+	uint32_t min_cost = 0xFFFFFFFF;
+	uint32_t curr_cost = 0;
+	uint32_t loop_block = 0;
+	uint32_t curr_timestamp = 0;
 
-				/* make the page status valid */
-				ptr_victim_block->list_pages[loop_page].page_status = 3;
+	uint32_t nr_valid_pages;
+	uint32_t nr_invalid_pages;
+	struct flash_block_t* ptr_curr_block = NULL;
+
+	curr_timestamp = timer_get_timestamp_in_sec ();
+
+	for (loop_block = 0; loop_block < ptr_ssd->nr_blocks_per_chip; loop_block++) 
+	{
+		ptr_curr_block = &ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block];
+		nr_valid_pages = ptr_curr_block->nr_valid_pages;
+		nr_invalid_pages = ptr_curr_block->nr_invalid_pages;
+
+		/* see if the pages that belong to the block are all invalid */
+		if (nr_invalid_pages == ptr_ssd->nr_blocks_per_chip) 
+		{
+			return ptr_curr_block;
+		}
+
+		if (nr_invalid_pages > 0) 
+		{
+			/* calculate the cost of garbage collection according to the 'cost-benefit' function */
+			curr_cost = nr_valid_pages * (ptr_curr_block->last_modified_time * 1000) / curr_timestamp;
+			curr_cost = curr_cost / 1000;
+
+			/* choose the block with the smallest cost */
+			if (curr_cost < min_cost) 
+			{
+				ptr_victim_block = ptr_curr_block;
+				min_cost = curr_cost;
 			}
 		}
 	}
 
-	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_victim_block);
+	/* TODO: need a way to handle such a case more nicely */
+	if (ptr_victim_block == NULL) 
+	{
+		printf("blueftl_gc_page: oops! 'ptr_victim_block' is NULL.\nBlueFTL will die.\n");
+	}
+
+	return ptr_victim_block;
+}
+
+int32_t gc_page_trigger_gc_lab (
+	struct ftl_context_t* ptr_ftl_context,
+	int32_t gc_target_bus,
+	int32_t gc_target_chip)
+{
+	int ret = -1;
+	uint32_t loop_page = 0;
+	uint32_t loop_page_victim = 0;
+	uint32_t loop_page_gc = 0;
+	uint32_t logical_page_address;
+
+	struct flash_block_t* ptr_gc_block = NULL;
+	struct flash_block_t* ptr_victim_block = NULL;
+
+	struct flash_ssd_t* ptr_ssd = ptr_ftl_context->ptr_ssd;
+	struct ftl_page_mapping_context_t* ptr_pg_mapping = (struct ftl_page_mapping_context_t *)ptr_ftl_context->ptr_mapping;
+	struct virtual_device_t* ptr_vdevice = ptr_ftl_context->ptr_vdevice;
+
+	// (1) get the victim block using the greedy policy
+	if ((ptr_victim_block = gc_page_select_victim_greedy (ptr_ssd, gc_target_bus, gc_target_chip)) == NULL) 
+	{
+		printf ("blueftl_gc: victim block is not selected\n");
+		return ret;
+	}
+
+	if (ptr_victim_block->nr_invalid_pages == 0) 
+	{
+		printf("[ERROR] the victim block at least has 1 invalid page.\n");
+		return ret;
+	}
+
+	// (2) get the free block reserved for the garbage collection
+	ptr_gc_block = *(ptr_pg_mapping->ptr_gc_blocks + (gc_target_bus * ptr_ssd->nr_chips_per_bus + gc_target_chip));
+
+	// (3) check error cases
+	if(ptr_gc_block->nr_free_pages != ptr_ssd->nr_pages_per_block) 
+	{
+		printf("[ERROR] the gc block should be empty.\n");
+		return ret;
+	}
+
+	ret = 0;
+
+	// (4) copy flash pages from the victim block to the gc block
+	if(ptr_victim_block->nr_valid_pages > 0) 
+	{
+		for(loop_page_victim = 0; loop_page_victim < ptr_ssd->nr_pages_per_block; loop_page_victim++) 
+		{
+			if(ptr_victim_block->list_pages[loop_page_victim].page_status == PAGE_STATUS_VALID) 
+			{
+				// get a physical page address of the page to be copied.
+				logical_page_address = ptr_victim_block->list_pages[loop_page_victim].no_logical_page_addr;
+
+				// copy the valid page on the victim block to the next new page on gc block reserved.
+				blueftl_user_vdevice_page_read(
+					ptr_vdevice,
+					ptr_victim_block->no_bus, 
+					ptr_victim_block->no_chip,
+					ptr_victim_block->no_block ,
+					loop_page_victim, 
+					FLASH_PAGE_SIZE, 
+					(char*) gc_buff);
+
+				blueftl_user_vdevice_page_write(
+					ptr_vdevice,
+					ptr_gc_block->no_bus, 
+					ptr_gc_block->no_chip,
+					ptr_gc_block->no_block,
+					loop_page_gc, 
+					FLASH_PAGE_SIZE, 
+					(char*) gc_buff);
+
+				/*page_mapping_map_logical_to_physical (ptr_ftl_context, logical_page_address, physical_page_address);*/
+				page_mapping_map_logical_to_physical (
+					ptr_ftl_context, 
+					logical_page_address, 
+					ptr_gc_block->no_bus, 
+					ptr_gc_block->no_chip, 
+					ptr_gc_block->no_block, 
+					loop_page_gc);
+
+				// check whether the page has been moved succesfully.
+				if(ptr_victim_block->list_pages[loop_page_victim].page_status != PAGE_STATUS_INVALID) 
+				{
+					printf("[ERROR] the victim page is not invalidated\n");
+				}
+
+				if(ptr_gc_block->list_pages[loop_page_gc].page_status != PAGE_STATUS_VALID) 
+				{
+					printf("[ERROR] the gc page is not valid\n");
+				}
+
+				loop_page_gc++;
+
+				/* update the profiling information */
+				perf_gc_inc_page_copies ();
+			}
+		}
+	} 
+
+	// (5) erase the victim block
+	blueftl_user_vdevice_block_erase (
+		ptr_vdevice,
+		ptr_victim_block->no_bus, 
+		ptr_victim_block->no_chip,
+		ptr_victim_block->no_block);
+
+	perf_gc_inc_blk_erasures ();
+
+	// reset erased block
+	ptr_victim_block->nr_free_pages = ptr_ssd->nr_pages_per_block;
+	ptr_victim_block->nr_valid_pages = 0;
+	ptr_victim_block->nr_invalid_pages = 0;
+	ptr_victim_block->nr_erase_cnt++;
+	ptr_victim_block->last_modified_time = 0;
+	ptr_victim_block->is_reserved_block = 1;
+
+	for(loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++) {
+		ptr_victim_block->list_pages[loop_page].no_logical_page_addr = -1;
+		ptr_victim_block->list_pages[loop_page].page_status = PAGE_STATUS_FREE;
+	}
+
+	// (6) the victim block becomes the new gc block
+	*(ptr_pg_mapping->ptr_gc_blocks + (gc_target_bus * ptr_ssd->nr_chips_per_bus + gc_target_chip)) = ptr_victim_block;
+
+	// (7) the gc block becomes the new active block
+	*(ptr_pg_mapping->ptr_active_blocks + (gc_target_bus * ptr_ssd->nr_chips_per_bus + gc_target_chip)) = ptr_gc_block;
+	ptr_gc_block->is_reserved_block = 0;
+
+
+/*	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_victim_block);
 
 	if (check_cold_data_migration())
 		cold_data_migration(ptr_ftl_context);
-/*	if (check_cold_pool_adjustment())
+	if (check_cold_pool_adjustment())
 		cold_pool_adjustment(ptr_ftl_context);
 	if (check_hot_pool_adjustment())
 		hot_pool_adjustment(ptr_ftl_context);
 
 */
-	/* free the block buffer */
-	if (ptr_block_buff != NULL)
-	{
-		free(ptr_block_buff);
-	}
 
 	return ret;
 }
