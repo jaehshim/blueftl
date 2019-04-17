@@ -553,10 +553,10 @@ int32_t page_mapping_get_mapped_physical_page_address(
 
 	if (physical_page_address == PAGE_TABLE_FREE)
 	{
-		/* the reguested page is a free page; it is not mapped to any logical page 
+		/* the requested page is a free page; it is not mapped to any logical page 
 		   NOTE: this is not an error case because file system attempts to access the data that were not written before.
 		 */
-		printf("blueftl_mapping_page: the reguested page is a free page; it is not mapped to any logical page\n");
+		printf("[NOT A ERROR] blueftl_mapping_page: the requested page is a free page; it is not mapped to any logical page\n");
 		ret = -1;
 	}
 	else

@@ -77,6 +77,7 @@ struct flash_block_t *get_min_max_ptr(struct ftl_context_t *ptr_ftl_context, dua
 struct flash_block_t *get_erase_blk_ptr(struct ftl_context_t *ptr_ftl_context, uint32_t target_bus, uint32_t target_chip, uint32_t target_block);
 
 //added functions
+bool block_data_swap(struct ftl_context_t *ptr_ftl_context);
 bool block_valid_copy(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block1, struct flash_block_t *ptr_target_block2, uint8_t *ptr_block_buff1, uint8_t *ptr_block_buff2);
 bool page_clean_in_block(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block);
 bool write_buffer_to_block(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, uint8_t *ptr_block_buff);
