@@ -3,17 +3,17 @@
 #include "blueftl_user_vdevice.h"
 
 struct flash_block_t* gc_page_select_victim_random (
-	struct flash_ssd_t* ptr_ssd,
+	struct ftl_context_t* ptr_ftl_context,
 	int32_t gc_target_bus, 
 	int32_t gc_target_chip);
 
 struct flash_block_t* gc_page_select_victim_greedy (
-	struct flash_ssd_t* ptr_ssd,
+	struct ftl_context_t* ptr_ftl_context,
 	int32_t gc_target_bus, 
 	int32_t gc_target_chip);
 
 struct flash_block_t* gc_page_select_victim_cost_benefit (
-	struct flash_ssd_t* ptr_ssd,
+	struct ftl_context_t* ptr_ftl_context,
 	int32_t gc_target_bus, 
 	int32_t gc_target_chip);
 

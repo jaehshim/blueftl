@@ -10,71 +10,13 @@
 
 unsigned char gc_buff[FLASH_PAGE_SIZE];
 
-struct flash_block_t* gc_page_select_victim_random (
-	struct flash_ssd_t* ptr_ssd,
-	int32_t gc_target_bus, 
-	int32_t gc_target_chip)
-{
-	struct flash_block_t* ptr_victim_block = NULL;
-	uint32_t max_loop = 30;
-	uint32_t cur_loop;
-	uint32_t r_number;
-
-	/* choose the victim block with a random number */
-	for (cur_loop = 0; cur_loop < max_loop; cur_loop++) 
-	{
-		r_number = timer_get_timestamp_in_us () %  ptr_ssd->nr_blocks_per_chip;
-
-		ptr_victim_block = 
-			&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[r_number]);
-
-		if (ptr_victim_block != NULL && ptr_victim_block->nr_invalid_pages > 0) 
-		{
-			/* choose this block as a victim block */
-			break;
-		} 
-		else 
-		{
-			/* hmmm... the victim block must have at least one invalid page,
-			   so we try victim selection with a different random number */
-			ptr_victim_block = NULL;
-		}
-	}
-
-	/* if the victim block is not chosen, we do a full search */
-	if (ptr_victim_block == NULL) 
-	{
-		for (cur_loop = 0; cur_loop < ptr_ssd->nr_blocks_per_chip; cur_loop++) 
-		{
-			ptr_victim_block = 
-				&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[cur_loop]);
-
-			if (ptr_victim_block != NULL && ptr_victim_block->nr_invalid_pages > 0) 
-			{
-				break;
-			}	
-			else
-			{
-				ptr_victim_block = NULL;
-			}
-		}
-	}
-
-	/* TODO: need a way to handle such a case more nicely */
-	if (ptr_victim_block == NULL) {
-		printf ("blueftl_gc_page: oops! 'ptr_victim_block' is NULL.\nBlueFTL will die.\n");
-	}
-
-	/* return the victim block chosen */
-	return ptr_victim_block;
-}
-
 struct flash_block_t* gc_page_select_victim_greedy (
-	struct flash_ssd_t* ptr_ssd,
+	struct ftl_context_t* ptr_ftl_context,
 	int32_t gc_target_bus, 
 	int32_t gc_target_chip)
 {
 	struct flash_block_t* ptr_victim_block = NULL;
+	struct flash_ssd_t* ptr_ssd = ptr_ftl_context->ptr_ssd;
 
 	uint32_t nr_max_invalid_pages = 0;
 	uint32_t nr_cur_invalid_pages;
@@ -88,76 +30,25 @@ struct flash_block_t* gc_page_select_victim_greedy (
 		if (nr_cur_invalid_pages == ptr_ssd->nr_pages_per_block) 
 		{
 			// all the pages that belong to the block are invalid
-			ptr_victim_block = 
-				&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]); 
+			ptr_victim_block = &(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]); 
 			return ptr_victim_block;
 		}
+
+		/* hot head이거나 cold head이면 victim에서 제외 */
+		if (&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]) == ptr_ftl_context->hot_block_ec_head ||
+			&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]) == ptr_ftl_context->cold_block_ec_head)
+			continue;
 
 		if (nr_max_invalid_pages < nr_cur_invalid_pages) 
 		{
 			nr_max_invalid_pages = nr_cur_invalid_pages;
-			ptr_victim_block = 
-				&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]); 
+			ptr_victim_block = &(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]); 
 		}
 	}
 
 	/* TODO: need a way to handle such a case more nicely */
 	if (ptr_victim_block == NULL) {
 		printf ("blueftl_gc_page: oops! 'ptr_victim_block' is NULL.\nBlueFTL will die.\n");
-	}
-
-	return ptr_victim_block;
-}
-
-struct flash_block_t* gc_page_select_victim_cost_benefit (
-	struct flash_ssd_t* ptr_ssd,
-	int32_t gc_target_bus, 
-	int32_t gc_target_chip)
-{
-	struct flash_block_t* ptr_victim_block = NULL;
-
-	uint32_t min_cost = 0xFFFFFFFF;
-	uint32_t curr_cost = 0;
-	uint32_t loop_block = 0;
-	uint32_t curr_timestamp = 0;
-
-	uint32_t nr_valid_pages;
-	uint32_t nr_invalid_pages;
-	struct flash_block_t* ptr_curr_block = NULL;
-
-	curr_timestamp = timer_get_timestamp_in_sec ();
-
-	for (loop_block = 0; loop_block < ptr_ssd->nr_blocks_per_chip; loop_block++) 
-	{
-		ptr_curr_block = &ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block];
-		nr_valid_pages = ptr_curr_block->nr_valid_pages;
-		nr_invalid_pages = ptr_curr_block->nr_invalid_pages;
-
-		/* see if the pages that belong to the block are all invalid */
-		if (nr_invalid_pages == ptr_ssd->nr_blocks_per_chip) 
-		{
-			return ptr_curr_block;
-		}
-
-		if (nr_invalid_pages > 0) 
-		{
-			/* calculate the cost of garbage collection according to the 'cost-benefit' function */
-			curr_cost = nr_valid_pages * (ptr_curr_block->last_modified_time * 1000) / curr_timestamp;
-			curr_cost = curr_cost / 1000;
-
-			/* choose the block with the smallest cost */
-			if (curr_cost < min_cost) 
-			{
-				ptr_victim_block = ptr_curr_block;
-				min_cost = curr_cost;
-			}
-		}
-	}
-
-	/* TODO: need a way to handle such a case more nicely */
-	if (ptr_victim_block == NULL) 
-	{
-		printf("blueftl_gc_page: oops! 'ptr_victim_block' is NULL.\nBlueFTL will die.\n");
 	}
 
 	return ptr_victim_block;
@@ -182,7 +73,7 @@ int32_t gc_page_trigger_gc_lab (
 	struct virtual_device_t* ptr_vdevice = ptr_ftl_context->ptr_vdevice;
 
 	// (1) get the victim block using the greedy policy
-	if ((ptr_victim_block = gc_page_select_victim_greedy (ptr_ssd, gc_target_bus, gc_target_chip)) == NULL) 
+	if ((ptr_victim_block = gc_page_select_victim_greedy (ptr_ftl_context, gc_target_bus, gc_target_chip)) == NULL) 
 	{
 		printf ("blueftl_gc: victim block is not selected\n");
 		return ret;
