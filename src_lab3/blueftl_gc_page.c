@@ -195,7 +195,7 @@ int32_t gc_page_trigger_gc_lab (
 	}
 
 	// (2) get the free block reserved for the garbage collection
-	ptr_gc_block = *(ptr_pg_mapping->ptr_gc_blocks + (gc_target_bus * ptr_ssd->nr_chips_per_bus + gc_target_chip));
+	ptr_gc_block = ptr_pg_mapping->ptr_gc_block;
 
 	// (3) check error cases
 	if(ptr_gc_block->nr_free_pages != ptr_ssd->nr_pages_per_block) 
@@ -286,14 +286,14 @@ int32_t gc_page_trigger_gc_lab (
 	}
 
 	// (6) the victim block becomes the new gc block
-	*(ptr_pg_mapping->ptr_gc_blocks + (gc_target_bus * ptr_ssd->nr_chips_per_bus + gc_target_chip)) = ptr_victim_block;
+	ptr_pg_mapping->ptr_gc_block = ptr_victim_block;
 
 	// (7) the gc block becomes the new active block
-	*(ptr_pg_mapping->ptr_active_blocks + (gc_target_bus * ptr_ssd->nr_chips_per_bus + gc_target_chip)) = ptr_gc_block;
+	ptr_pg_mapping->ptr_active_block = ptr_gc_block;
 	ptr_gc_block->is_reserved_block = 0;
 
 
-	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_victim_block);
+	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_gc_block);
 
 	if (check_cold_data_migration())
 		cold_data_migration(ptr_ftl_context);

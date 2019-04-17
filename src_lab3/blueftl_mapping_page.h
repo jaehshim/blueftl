@@ -14,10 +14,10 @@ struct ftl_page_mapping_context_t {
 	struct ftl_page_mapping_table_t* ptr_mapping_table;
 
 	/* blocks reserved for garbage collection */
-	struct flash_block_t** ptr_gc_blocks;
+	struct flash_block_t* ptr_gc_block;
 
 	/* blocks used for writing */
-	struct flash_block_t** ptr_active_blocks;
+	struct flash_block_t* ptr_active_block;
 
 	/* the recently used bus */
 	uint32_t ru_bus;

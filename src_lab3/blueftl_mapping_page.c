@@ -66,7 +66,7 @@ uint32_t init_gc_blocks(struct ftl_context_t *ptr_ftl_context)
 		{
 			if ((ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, loop_bus, loop_chip)) != NULL)
 			{
-				*(ptr_pg_mapping->ptr_gc_blocks + (loop_bus * ptr_ssd->nr_chips_per_bus + loop_chip)) = ptr_erase_block;
+				ptr_pg_mapping->ptr_gc_block = ptr_erase_block;
 				ptr_erase_block->is_reserved_block = 1;
 			}
 			else
@@ -94,7 +94,7 @@ uint32_t init_active_blocks(struct ftl_context_t *ptr_ftl_context)
 		{
 			if ((ptr_erase_block = ssdmgmt_get_free_block(ptr_ssd, loop_bus, loop_chip)))
 			{
-				*(ptr_pg_mapping->ptr_active_blocks + (loop_bus * ptr_ssd->nr_chips_per_bus + loop_chip)) = ptr_erase_block;
+				ptr_pg_mapping->ptr_active_block = ptr_erase_block;
 			}
 			else
 			{
@@ -225,22 +225,8 @@ struct ftl_context_t *page_mapping_create_ftl_context(struct virtual_device_t *p
 	}
 	init_page_mapping_table(ptr_ftl_context);
 
-	/* allocate the memory for the gc blocks */
-	if ((ptr_pg_mapping->ptr_gc_blocks =
-			 (struct flash_block_t **)malloc(sizeof(struct flash_block_t *) * ptr_ssd->nr_buses * ptr_ssd->nr_chips_per_bus)) == NULL)
-	{
-		printf("blueftl_mapping_page: error occurs when allocating gc blocks\n");
-		goto error_alloc_gc_block;
-	}
 	init_gc_blocks(ptr_ftl_context);
-
-	/* allocate the memory for the active blocks */
-	if ((ptr_pg_mapping->ptr_active_blocks =
-			 (struct flash_block_t **)malloc(sizeof(struct flash_block_t *) * ptr_ssd->nr_buses * ptr_ssd->nr_chips_per_bus)) == NULL)
-	{
-		printf("blueftl_mapping_page: error occurs when allocating active blocks\n");
-		goto error_alloc_active_block;
-	}
+	
 	init_active_blocks(ptr_ftl_context);
 
 	/* allocate the memory for the ru blocks */
@@ -248,7 +234,6 @@ struct ftl_context_t *page_mapping_create_ftl_context(struct virtual_device_t *p
 			 (uint32_t *)malloc(sizeof(uint32_t) * ptr_ssd->nr_buses)) == NULL)
 	{
 		printf("blueftl_mapping_page: the memory allocation of the ru blocks failed\n");
-		goto error_alloc_ru_blocks;
 	}
 	init_ru_blocks(ptr_ftl_context);
 
@@ -258,12 +243,6 @@ struct ftl_context_t *page_mapping_create_ftl_context(struct virtual_device_t *p
 	ptr_ftl_context->ptr_vdevice = ptr_vdevice;
 
 	return ptr_ftl_context;
-
-error_alloc_ru_blocks:
-	free(ptr_pg_mapping->ptr_active_blocks);
-
-error_alloc_active_block:
-	free(ptr_pg_mapping->ptr_gc_blocks);
 
 error_alloc_gc_block:
 	free(ptr_pg_mapping->ptr_mapping_table);
@@ -291,18 +270,6 @@ void page_mapping_destroy_ftl_context(struct ftl_context_t *ptr_ftl_context)
 	if (ptr_pg_mapping->ptr_ru_chips != NULL)
 	{
 		free(ptr_pg_mapping->ptr_ru_chips);
-	}
-
-	/* destroy active blocks */
-	if (ptr_pg_mapping->ptr_active_blocks != NULL)
-	{
-		free(ptr_pg_mapping->ptr_active_blocks);
-	}
-
-	/* destroy gc blocks */
-	if (ptr_pg_mapping->ptr_gc_blocks != NULL)
-	{
-		free(ptr_pg_mapping->ptr_gc_blocks);
 	}
 
 	/* destroy the page mapping table */
@@ -365,7 +332,7 @@ uint32_t get_new_free_page_addr(struct ftl_context_t *ptr_ftl_context)
 	curr_chip = ptr_pg_mapping->ptr_ru_chips[curr_bus];
 
 	// (3) see if the bus number calculated is different from the real bus number
-	ptr_active_block = *(ptr_pg_mapping->ptr_active_blocks + (curr_bus * ptr_ssd->nr_chips_per_bus + curr_chip));
+	ptr_active_block = ptr_pg_mapping->ptr_active_block;
 
 	if (ptr_active_block->no_bus != curr_bus || ptr_active_block->no_chip != curr_chip)
 	{
@@ -376,7 +343,7 @@ uint32_t get_new_free_page_addr(struct ftl_context_t *ptr_ftl_context)
 	if (ptr_active_block->nr_free_pages == 0)
 	{
 		// there is no free page in the block, and therefore it it necessary to allocate a new log block for this bus
-		ptr_active_block = *(ptr_pg_mapping->ptr_active_blocks + (curr_bus * ptr_ssd->nr_chips_per_bus + curr_chip)) = ssdmgmt_get_free_block(ptr_ssd, curr_bus, curr_chip);
+		ptr_active_block = ptr_pg_mapping->ptr_active_block = ssdmgmt_get_free_block(ptr_ssd, curr_bus, curr_chip);
 
 		if (ptr_active_block != NULL)
 		{
@@ -432,6 +399,7 @@ int32_t map_logical_to_physical(struct ftl_context_t *ptr_ftl_context, uint32_t 
 	if (is_valid_address_range(ptr_ftl_context, logical_page_address) != 1)
 	{
 		printf("blueftl_mapping_page: invalid logical page range (%d)\n", logical_page_address);
+		exit(1);
 		return -1;
 	}
 

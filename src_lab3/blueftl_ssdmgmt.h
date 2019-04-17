@@ -26,7 +26,7 @@ struct flash_block_t {
 	uint32_t nr_free_pages;
 
 	/* the number of erasure operations */
-	uint32_t nr_erase_cnt;
+	int32_t nr_erase_cnt;
 
 	/* for bad block management */
 	uint32_t is_bad_block;

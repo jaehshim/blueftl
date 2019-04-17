@@ -82,10 +82,10 @@ void check_max_min_nr_erase_cnt(struct ftl_context_t *ptr_ftl_context, struct fl
             update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, COLD_POOL, EC, MIN);
             g_min_ec_in_cold_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
-        else if (g_min_ec_in_cold_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt)
+        else if (g_max_ec_in_cold_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt)
         {
             update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, COLD_POOL, EC, MAX);
-            g_min_ec_in_cold_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
+            g_max_ec_in_cold_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
 
         if (g_min_rec_in_cold_pool.nr_erase_cnt > ptr_erase_block->nr_erase_cnt)
@@ -93,10 +93,10 @@ void check_max_min_nr_erase_cnt(struct ftl_context_t *ptr_ftl_context, struct fl
             update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, COLD_POOL, REC, MIN);
             g_min_rec_in_cold_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
-        else if (g_min_rec_in_cold_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt)
+        else if (g_max_rec_in_cold_pool.nr_erase_cnt < ptr_erase_block->nr_erase_cnt)
         {
             update_max_min_nr_erase_cnt_in_pool(ptr_ftl_context, ptr_erase_block, COLD_POOL, REC, MAX);
-            g_min_rec_in_cold_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
+            g_max_rec_in_cold_pool.nr_erase_cnt = ptr_erase_block->nr_erase_cnt;
         }
     }
 }
@@ -121,83 +121,63 @@ int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
 {
     struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
     struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
+    struct ftl_page_mapping_context_t* ptr_pg_mapping = (struct ftl_page_mapping_context_t *)ptr_ftl_context->ptr_mapping;
+    struct flash_block_t * ptr_reserved_block = ptr_pg_mapping->ptr_gc_block;
 
-    // prepare buffers
-    uint8_t *ptr_block_buff1 = NULL;
-    uint8_t *ptr_block_buff2 = NULL;
-
-    /* block의 데이터 보관할 buffer 선언 및 할당 */
-    //printf("step 1\n");
-    if ((ptr_block_buff1 = (uint8_t *)malloc(ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size)) == NULL)
-    {
-        printf("blueftl_cold_migration: the memory allocation for the merge buffer1 failed (%u)\n",
-               ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size);
-        return -1;
-    }
-    memset(ptr_block_buff1, 0xFF, ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size);
-
-    if ((ptr_block_buff2 = (uint8_t *)malloc(ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size)) == NULL)
-    {
-        printf("blueftl_cold_migration: the memory allocation for the merge buffer2 failed (%u)\n",
-               ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size);
-        return -1;
-    }
-    memset(ptr_block_buff2, 0xFF, ptr_ssd->nr_pages_per_block * ptr_vdevice->page_main_size);
+    struct flash_block_t * ptr_hot_head_block = ptr_ftl_context->hot_block_ec_head;
+    struct flash_block_t * ptr_cold_head_block = ptr_ftl_context->cold_block_ec_head;
 
     /* buffer로 block의 데이터 copy */
-    //printf("step 2\n");
-    if (!block_data_swap(ptr_ftl_context)) // copying valid data of oldest hot block to buffer
+    if (!block_to_block_transfer(ptr_ftl_context, ptr_hot_head_block, ptr_reserved_block))
     {
         printf("cold mig head blocks copy to buffer failed\n");
-        exit(1);
         return -1;
     }
 
-    /* cold pool로 이동할 hot head block의 rec값 초기화 -> only cold pool */
-  //  printf("step 3\n");
-    if (!rec_reset(ptr_ftl_context))
+    if (!block_to_block_transfer(ptr_ftl_context, ptr_cold_head_block, ptr_hot_head_block))
     {
-        printf("cold mig rec reset failed\n"); //write data in buffer to oldest_hot_block
-        exit(1);
+        printf("cold mig head blocks copy to buffer failed\n");
         return -1;
     }
 
-    /* block들의 pool 위치 변경 */
-  //  printf("step 4\n");
-    if (!block_pool_swap(ptr_ftl_context)) // swap two blocks. to the pool tail
+    if (!block_to_block_transfer(ptr_ftl_context, ptr_reserved_block, ptr_cold_head_block))
     {
-        printf("cold mig swap failed\n");
-        exit(1);
+        printf("cold mig head blocks copy to buffer failed\n");
         return -1;
     }
 
-    /* find new head for each pools */
-   // printf("step 5\n");
-    if (!find_new_heads(ptr_ftl_context)) // find new heads for two pools
-    {
-        printf("finding new hot pool head failed\n");
-        exit(1);
-        return -1;
-    }
+    // /* cold pool로 이동할 hot head block의 rec값 초기화 -> only cold pool */
+    // //  printf("step 3\n");
+    // if (!rec_reset(ptr_ftl_context))
+    // {
+    //     printf("cold mig rec reset failed\n"); //write data in buffer to oldest_hot_block
+    //     exit(1);
+    //     return -1;
+    // }
 
-    //    printf("step 6\n");
-    if (ptr_block_buff1 != NULL)
-        free(ptr_block_buff1);
-    if (ptr_block_buff2 != NULL)
-        free(ptr_block_buff2);
+    // /* block들의 pool 위치 변경 */
+    // //  printf("step 4\n");
+    // if (!block_pool_swap(ptr_ftl_context)) // swap two blocks. to the pool tail
+    // {
+    //     printf("cold mig swap failed\n");
+    //     exit(1);
+    //     return -1;
+    // }
 
-    //   printf("step 7\n");
+    // /* find new head for each pools */
+    // // printf("step 5\n");
+    // if (!find_new_heads(ptr_ftl_context)) // find new heads for two pools
+    // {
+    //     printf("finding new hot pool head failed\n");
+    //     exit(1);
+    //     return -1;
+    // }
+
     return 0;
 }
 
-bool block_data_swap(struct ftl_context_t *ptr_ftl_context)
-{
-    struct flash_block_t* ptr_gc_block = NULL;
-    struct flash_block_t* ptr_tmp_block = NULL;
-	struct flash_block_t* ptr_hot_block = ptr_ftl_context->hot_block_ec_head;
-	struct flash_block_t* ptr_cold_block = ptr_ftl_context->cold_block_ec_head;
-
-    struct flash_ssd_t* ptr_ssd = ptr_ftl_context->ptr_ssd;
+bool block_to_block_transfer(struct ftl_context_t *ptr_ftl_context, struct flash_block_t * ptr_victim_block, struct flash_block_t * ptr_reserved_block) {
+    struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
     struct ftl_page_mapping_context_t *ptr_pg_mapping = (struct ftl_page_mapping_context_t *)ptr_ftl_context->ptr_mapping;
     struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
 
@@ -207,180 +187,95 @@ bool block_data_swap(struct ftl_context_t *ptr_ftl_context)
     uint32_t logical_page_address;
     unsigned char gc_buff[FLASH_PAGE_SIZE];
 
-    if (ptr_hot_block == NULL || ptr_cold_block == NULL)
+    if (ptr_victim_block == NULL || ptr_reserved_block == NULL)
     {
         printf("Invalid head blocks!!\n");
         return false;
     }
 
-    ptr_gc_block = *(ptr_pg_mapping->ptr_gc_blocks + (0 * ptr_ssd->nr_chips_per_bus + 0));
-
-    if(ptr_gc_block->nr_free_pages != ptr_ssd->nr_pages_per_block) 
-	{
-		printf("[ERROR] the gc block should be empty In Cold data migration\n");
-        return false;
+    if (ptr_reserved_block->nr_free_pages != ptr_ssd->nr_pages_per_block)
+    {
+        printf("[ERROR] the gc block should be empty.\n");
+        return ret;
     }
 
     /*------------step 1------------*/
     /* hot block copy to reserved block */
     for (loop_page_victim = 0; loop_page_victim < ptr_ssd->nr_pages_per_block; loop_page_victim++)
     {
-        logical_page_address = ptr_hot_block->list_pages[loop_page_victim].no_logical_page_addr;
+        if (ptr_victim_block->list_pages[loop_page_victim].page_status == PAGE_STATUS_VALID)
+        {
+            logical_page_address = ptr_victim_block->list_pages[loop_page_victim].no_logical_page_addr;
 
-        blueftl_user_vdevice_page_read(
-            ptr_vdevice,
-            ptr_hot_block->no_bus,
-            ptr_hot_block->no_chip,
-            ptr_hot_block->no_block,
-            loop_page_victim,
-            FLASH_PAGE_SIZE,
-            (char *)gc_buff);
+            blueftl_user_vdevice_page_read(
+                ptr_vdevice,
+                ptr_victim_block->no_bus,
+                ptr_victim_block->no_chip,
+                ptr_victim_block->no_block,
+                loop_page_victim,
+                FLASH_PAGE_SIZE,
+                (char *)gc_buff);
 
-        blueftl_user_vdevice_page_write(
-            ptr_vdevice,
-            ptr_gc_block->no_bus,
-            ptr_gc_block->no_chip,
-            ptr_gc_block->no_block,
-            loop_page_victim,
-            FLASH_PAGE_SIZE,
-            (char *)gc_buff);
+            blueftl_user_vdevice_page_write(
+                ptr_vdevice,
+                ptr_reserved_block->no_bus,
+                ptr_reserved_block->no_chip,
+                ptr_reserved_block->no_block,
+                loop_page_gc,
+                FLASH_PAGE_SIZE,
+                (char *)gc_buff);
 
-        page_mapping_map_logical_to_physical(
-            ptr_ftl_context,
-            logical_page_address,
-            ptr_gc_block->no_bus,
-            ptr_gc_block->no_chip,
-            ptr_gc_block->no_block,
-            loop_page_victim);
+            page_mapping_map_logical_to_physical(
+                ptr_ftl_context,
+                logical_page_address,
+                ptr_reserved_block->no_bus,
+                ptr_reserved_block->no_chip,
+                ptr_reserved_block->no_block,
+                loop_page_gc);
 
-        perf_wl_inc_page_copies();
+            // check whether the page has been moved succesfully.
+            if (ptr_victim_block->list_pages[loop_page_victim].page_status != PAGE_STATUS_INVALID)
+            {
+                printf("[ERROR] the victim page is not invalidated\n");
+            }
+
+            if (ptr_reserved_block->list_pages[loop_page_gc].page_status != PAGE_STATUS_VALID)
+            {
+                printf("[ERROR] the gc page is not valid\n");
+            }
+
+            loop_page_gc++;
+
+            perf_wl_inc_page_copies();
+        }
     }
 
     // erase hot block & initialize
     blueftl_user_vdevice_block_erase(
         ptr_vdevice,
-        ptr_hot_block->no_bus,
-        ptr_hot_block->no_chip,
-        ptr_hot_block->no_block);
-    perf_wl_inc_blk_erasures ();
-	ptr_hot_block->nr_free_pages = ptr_ssd->nr_pages_per_block;
-	ptr_hot_block->nr_valid_pages = 0;
-	ptr_hot_block->nr_invalid_pages = 0;
-	ptr_hot_block->nr_erase_cnt++;
-	ptr_hot_block->last_modified_time = 0;
+        ptr_victim_block->no_bus,
+        ptr_victim_block->no_chip,
+        ptr_victim_block->no_block);
 
-	for(loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++) {
-		ptr_hot_block->list_pages[loop_page].no_logical_page_addr = -1;
-		ptr_hot_block->list_pages[loop_page].page_status = PAGE_STATUS_FREE;
-	}
+    perf_wl_inc_blk_erasures();
 
-    /*------------step 2------------*/
-    /* cold block copy to hot block */
-    for (loop_page_victim = 0; loop_page_victim < ptr_ssd->nr_pages_per_block; loop_page_victim++)
+    ptr_victim_block->nr_free_pages = ptr_ssd->nr_pages_per_block;
+    ptr_victim_block->nr_valid_pages = 0;
+    ptr_victim_block->nr_invalid_pages = 0;
+    ptr_victim_block->nr_erase_cnt++;
+    ptr_victim_block->last_modified_time = 0;
+    ptr_victim_block->is_reserved_block = 1;
+
+    for (loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++)
     {
-        logical_page_address = ptr_cold_block->list_pages[loop_page_victim].no_logical_page_addr;
-
-        blueftl_user_vdevice_page_read(
-            ptr_vdevice,
-            ptr_cold_block->no_bus,
-            ptr_cold_block->no_chip,
-            ptr_cold_block->no_block,
-            loop_page_victim,
-            FLASH_PAGE_SIZE,
-            (char *)gc_buff);
-
-        blueftl_user_vdevice_page_write(
-            ptr_vdevice,
-            ptr_hot_block->no_bus,
-            ptr_hot_block->no_chip,
-            ptr_hot_block->no_block,
-            loop_page_victim,
-            FLASH_PAGE_SIZE,
-            (char *)gc_buff);
-
-        page_mapping_map_logical_to_physical(
-            ptr_ftl_context,
-            logical_page_address,
-            ptr_hot_block->no_bus,
-            ptr_hot_block->no_chip,
-            ptr_hot_block->no_block,
-            loop_page_victim);
-
-        perf_wl_inc_page_copies();
+        ptr_victim_block->list_pages[loop_page].no_logical_page_addr = -1;
+        ptr_victim_block->list_pages[loop_page].page_status = PAGE_STATUS_FREE;
     }
 
-    // erase cold block & initialize
-    blueftl_user_vdevice_block_erase(
-        ptr_vdevice,
-        ptr_cold_block->no_bus,
-        ptr_cold_block->no_chip,
-        ptr_cold_block->no_block);
-    perf_wl_inc_blk_erasures ();
-	ptr_cold_block->nr_free_pages = ptr_ssd->nr_pages_per_block;
-	ptr_cold_block->nr_valid_pages = 0;
-	ptr_cold_block->nr_invalid_pages = 0;
-	ptr_cold_block->nr_erase_cnt++;
-	ptr_cold_block->last_modified_time = 0;
+    ptr_pg_mapping->ptr_gc_block = ptr_victim_block;
 
-	for(loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++) {
-		ptr_cold_block->list_pages[loop_page].no_logical_page_addr = -1;
-		ptr_cold_block->list_pages[loop_page].page_status = PAGE_STATUS_FREE;
-	}
-
-    /*------------step 3------------*/
-    /* gc block copy to cold block */
-    for (loop_page_victim = 0; loop_page_victim < ptr_ssd->nr_pages_per_block; loop_page_victim++)
-    {
-        logical_page_address = ptr_gc_block->list_pages[loop_page_victim].no_logical_page_addr;
-
-        blueftl_user_vdevice_page_read(
-            ptr_vdevice,
-            ptr_gc_block->no_bus,
-            ptr_gc_block->no_chip,
-            ptr_gc_block->no_block,
-            loop_page_victim,
-            FLASH_PAGE_SIZE,
-            (char *)gc_buff);
-
-        blueftl_user_vdevice_page_write(
-            ptr_vdevice,
-            ptr_cold_block->no_bus,
-            ptr_cold_block->no_chip,
-            ptr_cold_block->no_block,
-            loop_page_victim,
-            FLASH_PAGE_SIZE,
-            (char *)gc_buff);
-
-        page_mapping_map_logical_to_physical(
-            ptr_ftl_context,
-            logical_page_address,
-            ptr_cold_block->no_bus,
-            ptr_cold_block->no_chip,
-            ptr_cold_block->no_block,
-            loop_page_victim);
-
-        perf_wl_inc_page_copies();
-    }
-
-    // erase gc block & initialize
-    blueftl_user_vdevice_block_erase(
-        ptr_vdevice,
-        ptr_gc_block->no_bus,
-        ptr_gc_block->no_chip,
-        ptr_gc_block->no_block);
-    perf_wl_inc_blk_erasures ();
-	ptr_gc_block->nr_free_pages = ptr_ssd->nr_pages_per_block;
-	ptr_gc_block->nr_valid_pages = 0;
-	ptr_gc_block->nr_invalid_pages = 0;
-	ptr_gc_block->nr_erase_cnt++;
-	ptr_gc_block->last_modified_time = 0;
-
-	for(loop_page = 0; loop_page < ptr_ssd->nr_pages_per_block; loop_page++) {
-		ptr_gc_block->list_pages[loop_page].no_logical_page_addr = -1;
-		ptr_gc_block->list_pages[loop_page].page_status = PAGE_STATUS_FREE;
-	}
-
-    printf("Cold Data Migration Finished\n");
+	ptr_pg_mapping->ptr_active_block = ptr_reserved_block;
+	ptr_reserved_block->is_reserved_block = 0;
 
     return true;
 }
@@ -402,7 +297,7 @@ bool block_pool_swap(struct ftl_context_t *ptr_ftl_context)
     }
     else
     { // tail은 못 됐지만 cold pool에는 들어감
-        ptr_ftl_context->hot_block_ec_head = COLD_POOL;
+        ptr_ftl_context->hot_block_ec_head->hot_cold_pool = COLD_POOL;
         ptr_ftl_context->hot_block_ec_head = NULL; // 기존 hot pool의 head 초기화
     }
 
@@ -414,7 +309,7 @@ bool block_pool_swap(struct ftl_context_t *ptr_ftl_context)
     }
     else
     {
-        ptr_ftl_context->cold_block_ec_head = HOT_POOL;
+        ptr_ftl_context->cold_block_ec_head->hot_cold_pool = HOT_POOL;
         ptr_ftl_context->cold_block_ec_head = NULL; // 기존 cold pool의 head 초기화
     }
 
