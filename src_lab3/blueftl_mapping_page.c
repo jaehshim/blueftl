@@ -146,8 +146,8 @@ void init_global_wear_leveling_metadata(struct ftl_context_t *ptr_ftl_context)
 					{
 						if (ptr_block->is_reserved_block == 0)
 						{
-							ptr_ftl_context->hot_block_ec_head = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
-							ptr_ftl_context->hot_block_rec_head = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+							ptr_ftl_context->hot_block_ec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+							ptr_ftl_context->hot_block_rec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
 							hot_head++;
 						}
 					}
@@ -155,8 +155,8 @@ void init_global_wear_leveling_metadata(struct ftl_context_t *ptr_ftl_context)
 					{
 						if (ptr_block->is_reserved_block == 0)
 						{
-							ptr_ftl_context->hot_block_ec_tail = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
-							ptr_ftl_context->hot_block_rec_tail = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+							ptr_ftl_context->hot_block_ec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+							ptr_ftl_context->hot_block_rec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
 							hot_tail++;
 						}
 					}
@@ -167,8 +167,8 @@ void init_global_wear_leveling_metadata(struct ftl_context_t *ptr_ftl_context)
 					{
 						if (ptr_block->is_reserved_block == 0)
 						{
-							ptr_ftl_context->cold_block_ec_head = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
-							ptr_ftl_context->cold_block_rec_head = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+							ptr_ftl_context->cold_block_ec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+							ptr_ftl_context->cold_block_rec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
 							cold_head++;
 						}
 					}
@@ -176,8 +176,8 @@ void init_global_wear_leveling_metadata(struct ftl_context_t *ptr_ftl_context)
 					{
 						if (ptr_block->is_reserved_block == 0)
 						{
-							ptr_ftl_context->cold_block_ec_tail = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
-							ptr_ftl_context->cold_block_rec_tail = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+							ptr_ftl_context->cold_block_ec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+							ptr_ftl_context->cold_block_rec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
 							cold_tail++;
 						}
 					}
@@ -524,7 +524,7 @@ int32_t page_mapping_get_mapped_physical_page_address(
 		/* the requested page is a free page; it is not mapped to any logical page 
 		   NOTE: this is not an error case because file system attempts to access the data that were not written before.
 		 */
-		printf("[NOT A ERROR] blueftl_mapping_page: the requested page is a free page; it is not mapped to any logical page\n");
+		//printf("[NOT A ERROR] blueftl_mapping_page: the requested page is a free page; it is not mapped to any logical page\n");
 		ret = -1;
 	}
 	else

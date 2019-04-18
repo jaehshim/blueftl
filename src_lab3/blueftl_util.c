@@ -57,6 +57,7 @@ static uint32_t _perf_gc_nr_blk_erasures = 0;
 static uint32_t _perf_wl_nr_page_copies = 0;
 static uint32_t _perf_wl_nr_blk_erasures = 0;
 static uint32_t _perf_wl_nr_maximum_erasures = 0;
+int32_t erase_cnt[1024] = {0,};
 
 void perf_inc_page_reads (void)
 {
@@ -93,8 +94,18 @@ void perf_wl_inc_blk_erasures (void)
 	_perf_wl_nr_blk_erasures++;
 }
 
+void perf_wl_inc_max_blk_erasures (uint32_t max_value)
+{
+	if (max_value > _perf_wl_nr_maximum_erasures)
+		_perf_wl_nr_maximum_erasures = max_value;
+}
+void update_erase_cnt(int32_t i, int32_t value) {
+	erase_cnt[i] = value;
+}
+
 void perf_display_results (void)
 {
+	int i = 0;
 	printf ("bluessd: ==========================Performance summary========================\n");
 	printf ("bluessd: # of page reads: %u\n", _perf_nr_page_reads);
 	printf ("bluessd: # of page writes: %u\n", _perf_nr_page_writes);
@@ -104,5 +115,9 @@ void perf_display_results (void)
 	printf ("bluessd: # of blk erasures: %u\n", _perf_wl_nr_blk_erasures);
 	printf ("bluessd: # of erasure count of the oldest blk: %u\n", _perf_wl_nr_maximum_erasures);
 	printf ("bluessd: =====================================================================\n");
+
+	for (i = 0; i < 1024; i++) {
+		printf("%d\n", erase_cnt[i]);
+	}
 }
 

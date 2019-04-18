@@ -26,5 +26,7 @@ void perf_inc_blk_erasures (void);
 void perf_gc_inc_page_copies (void);
 void perf_gc_inc_blk_erasures (void);
 void perf_display_results (void);
+void perf_wl_inc_max_blk_erasures (uint32_t max_value);
+void update_erase_cnt(int32_t i, int32_t value);
 
 #endif

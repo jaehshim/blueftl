@@ -25,15 +25,15 @@ struct ftl_context_t
 	uint32_t recent_page;
 
 	// hot/cold 의 head/tail 추적용
-	struct flash_block_t *hot_block_ec_head;
-	struct flash_block_t *hot_block_ec_tail;
-	struct flash_block_t *cold_block_ec_head;
-	struct flash_block_t *cold_block_ec_tail;
+	struct flash_block_t *hot_block_ec_max;
+	struct flash_block_t *hot_block_ec_min;
+	struct flash_block_t *cold_block_ec_max;
+	struct flash_block_t *cold_block_ec_min;
 
-	struct flash_block_t *hot_block_rec_head;
-	struct flash_block_t *hot_block_rec_tail;
-	struct flash_block_t *cold_block_rec_head;
-	struct flash_block_t *cold_block_rec_tail;
+	struct flash_block_t *hot_block_rec_max;
+	struct flash_block_t *hot_block_rec_min;
+	struct flash_block_t *cold_block_rec_max;
+	struct flash_block_t *cold_block_rec_min;
 
 	/* all about SSD */
 	struct flash_ssd_t *ptr_ssd;

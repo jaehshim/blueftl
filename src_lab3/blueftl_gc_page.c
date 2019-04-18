@@ -34,9 +34,9 @@ struct flash_block_t* gc_page_select_victim_greedy (
 			return ptr_victim_block;
 		}
 
-		/* hot head이거나 cold head이면 victim에서 제외 */
-		if (&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]) == ptr_ftl_context->hot_block_ec_head ||
-			&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]) == ptr_ftl_context->cold_block_ec_head)
+		/* hot max이거나 cold min이면 victim에서 제외 */
+		if (&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]) == ptr_ftl_context->hot_block_ec_max ||
+			&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]) == ptr_ftl_context->cold_block_ec_min)
 			continue;
 
 		if (nr_max_invalid_pages < nr_cur_invalid_pages) 
@@ -168,6 +168,7 @@ int32_t gc_page_trigger_gc_lab (
 	ptr_victim_block->nr_valid_pages = 0;
 	ptr_victim_block->nr_invalid_pages = 0;
 	ptr_victim_block->nr_erase_cnt++;
+	ptr_victim_block->nr_recent_erase_cnt++;
 	ptr_victim_block->last_modified_time = 0;
 	ptr_victim_block->is_reserved_block = 1;
 
@@ -183,18 +184,21 @@ int32_t gc_page_trigger_gc_lab (
 	ptr_pg_mapping->ptr_active_block = ptr_gc_block;
 	ptr_gc_block->is_reserved_block = 0;
 
+	// check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_gc_block);
 
-	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_gc_block);
+	// if (check_cold_data_migration(ptr_ftl_context))
+	// 	cold_data_migration(ptr_ftl_context);
 
-	if (check_cold_data_migration())
-		cold_data_migration(ptr_ftl_context);
-
-	// if (check_cold_pool_adjustment())
+	// if (check_cold_pool_adjustment(ptr_ftl_context))
 	// 	cold_pool_adjustment(ptr_ftl_context);
-	// if (check_hot_pool_adjustment())
+
+	// if (check_hot_pool_adjustment(ptr_ftl_context))
 	// 	hot_pool_adjustment(ptr_ftl_context);
 
 
+	for(loop_page = 0; loop_page < 1024; loop_page++) {
+		update_erase_cnt(loop_page, ptr_ssd->list_buses[0].list_chips[0].list_blocks[loop_page].nr_erase_cnt);
+	}
 
 	return ret;
 }

@@ -61,27 +61,25 @@ struct ftl_wl_t {
 };
 */
 void check_max_min_nr_erase_cnt(struct ftl_context_t *ptr_ftl_context, struct flash_block_t* ptr_erase_block);
-bool check_cold_data_migration(void);
+bool check_cold_data_migration(struct ftl_context_t *ptr_ftl_context);
 int32_t cold_data_migration(struct ftl_context_t* ptr_ftl_context_t);
 void update_max_min_nr_erase_cnt_in_pool(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, int pool, int type, int min_max);
-bool check_cold_pool_adjustment(void);
-bool check_hot_pool_adjustment(void);
+bool check_cold_pool_adjustment(struct ftl_context_t *ptr_ftl_context);
+bool check_hot_pool_adjustment(struct ftl_context_t *ptr_ftl_context);
 void cold_pool_adjustment(struct ftl_context_t *ptr_ftl_context_t);
 void hot_pool_adjustment(struct ftl_context_t *ptr_ftl_context_t);
-uint32_t find_min_ec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool);
-uint32_t find_max_ec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool);
-uint32_t find_max_rec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool);
-uint32_t find_min_rec_pool_block_info(struct ftl_context_t* ptr_ftl_context_t, uint32_t pool);
-void insert_pool(struct ftl_context_t* ptr_ftl_context_t, struct flash_block_t* ptr_erase_block);
 struct flash_block_t *get_min_max_ptr(struct ftl_context_t *ptr_ftl_context, dual_pool_block_info *pool_info);
 struct flash_block_t *get_erase_blk_ptr(struct ftl_context_t *ptr_ftl_context, uint32_t target_bus, uint32_t target_chip, uint32_t target_block);
+
 
 //added functions
 //bool block_data_swap(struct ftl_context_t *ptr_ftl_context);
 bool block_to_block_transfer(struct ftl_context_t *ptr_ftl_context, struct flash_block_t * ptr_victim_block, struct flash_block_t * ptr_reserved_block);
 bool rec_reset(struct ftl_context_t *ptr_ftl_context);
 bool block_pool_swap(struct ftl_context_t *ptr_ftl_context);
-bool find_new_heads(struct ftl_context_t *ptr_ftl_context);
-
+void find_new_ec_max(struct ftl_context_t *ptr_ftl_context, int pool, struct flash_block_t ** ptr_block);
+void find_new_ec_min(struct ftl_context_t *ptr_ftl_context, int pool, struct flash_block_t ** ptr_block);
+void find_new_rec_max(struct ftl_context_t *ptr_ftl_context, int pool, struct flash_block_t ** ptr_block);
+void find_new_rec_min(struct ftl_context_t *ptr_ftl_context, int pool, struct flash_block_t ** ptr_block);
 
 #endif
