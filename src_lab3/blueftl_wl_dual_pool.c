@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdbool.h>
 #include "blueftl_ftl_base.h"
 #include "blueftl_user_ftl_main.h"
 #include "blueftl_ssdmgmt.h"
@@ -25,28 +24,30 @@ unsigned char migration_buff[FLASH_PAGE_SIZE];
 // dual_pool_block_info g_max_rec_in_cold_pool;
 // dual_pool_block_info g_min_rec_in_cold_pool;
 
-bool check_cold_pool_adjustment(struct ftl_context_t *ptr_ftl_context)
+int check_cold_pool_adjustment(struct ftl_context_t *ptr_ftl_context)
 {
     if (ptr_ftl_context->cold_block_rec_max->nr_recent_erase_cnt - ptr_ftl_context->hot_block_rec_min->nr_recent_erase_cnt > WEAR_LEVELING_THRESHOLD)
-        return true;
+        return 1;
     else
-        return false;
+        return 0;
 }
 
-bool check_hot_pool_adjustment(struct ftl_context_t *ptr_ftl_context)
+int check_hot_pool_adjustment(struct ftl_context_t *ptr_ftl_context)
 {
     if (ptr_ftl_context->hot_block_ec_max->nr_erase_cnt - ptr_ftl_context->hot_block_ec_min->nr_erase_cnt > 2 * WEAR_LEVELING_THRESHOLD)
-        return true;
+        return 1;
     else
-        return false;
+        return 0;
 }
 
-bool check_cold_data_migration(struct ftl_context_t *ptr_ftl_context)
+int check_cold_data_migration(struct ftl_context_t *ptr_ftl_context)
 {
-    if (ptr_ftl_context->hot_block_ec_max->nr_erase_cnt - ptr_ftl_context->cold_block_ec_min->nr_erase_cnt > WEAR_LEVELING_THRESHOLD)
-        return true;
+    if (ptr_ftl_context->hot_block_ec_max->nr_erase_cnt - ptr_ftl_context->cold_block_ec_min->nr_erase_cnt > WEAR_LEVELING_THRESHOLD) {
+        //printf("%d %d\n", ptr_ftl_context->hot_block_ec_max->nr_erase_cnt,ptr_ftl_context->cold_block_ec_min->nr_erase_cnt);
+        return 1;
+    }
     else
-        return false;
+        return 0;
 }
 
 void check_max_min_nr_erase_cnt(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_erase_block)
@@ -350,7 +351,7 @@ void find_new_rec_min(struct ftl_context_t *ptr_ftl_context, int pool, struct fl
     *ptr_block = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[num_k]);
 }
 
-bool block_to_block_transfer(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_victim_block, struct flash_block_t *ptr_reserved_block)
+int block_to_block_transfer(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_victim_block, struct flash_block_t *ptr_reserved_block)
 {
     struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
     struct ftl_page_mapping_context_t *ptr_pg_mapping = (struct ftl_page_mapping_context_t *)ptr_ftl_context->ptr_mapping;
@@ -365,7 +366,7 @@ bool block_to_block_transfer(struct ftl_context_t *ptr_ftl_context, struct flash
     if (ptr_victim_block == NULL || ptr_reserved_block == NULL)
     {
         printf("Invalid head blocks!!\n");
-        return false;
+        return 0;
     }
 
     if (ptr_reserved_block->nr_free_pages != ptr_ssd->nr_pages_per_block)
@@ -446,16 +447,16 @@ bool block_to_block_transfer(struct ftl_context_t *ptr_ftl_context, struct flash
         ptr_victim_block->list_pages[loop_page].page_status = PAGE_STATUS_FREE;
     }
 
-    return true;
+    return 1;
 }
 
-bool rec_reset(struct ftl_context_t *ptr_ftl_context)
+int rec_reset(struct ftl_context_t *ptr_ftl_context)
 {
     ptr_ftl_context->hot_block_ec_max->nr_recent_erase_cnt = 0;
-    return true;
+    return 1;
 }
 
-bool block_pool_swap(struct ftl_context_t *ptr_ftl_context)
+int block_pool_swap(struct ftl_context_t *ptr_ftl_context)
 {
     //여기서 if 인 이유: tail이 최대/최소를 갖도록 하기 위해
     if (ptr_ftl_context->hot_block_ec_max->nr_erase_cnt > ptr_ftl_context->cold_block_ec_max->nr_erase_cnt)
@@ -482,7 +483,7 @@ bool block_pool_swap(struct ftl_context_t *ptr_ftl_context)
         ptr_ftl_context->cold_block_ec_min = NULL; // 기존 cold pool의 head 초기화
     }
 
-    return true;
+    return 1;
 }
 
 void update_max_min_nr_erase_cnt_in_pool(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, int pool, int type, int min_max)

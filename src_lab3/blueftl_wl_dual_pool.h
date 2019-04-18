@@ -10,7 +10,6 @@
 
 #define	WEAR_LEVELING_THRESHOLD 5
 
-
 #define ERASURE_COUNT  		 0
 #define RECENT_ERASURE_COUNT 1
 
@@ -47,25 +46,25 @@ typedef struct _block_info_node{
 /*
 struct ftl_wl_t {
 	void (* cold_data_migration) (struct ftl_context_t* ptr_ftl_context_t);
-	bool (* check_cold_data_migration) (void);
+	int (* check_cold_data_migration) (void);
 	uint32_t (* update_max_min_nr_erase_cnt_in_pool) ( int pool, int type, int min_max, int bus, int chip, int block, uint32_t erasure_count);
-	bool (* check_cold_pool_adjustment) (void);
-	bool (* check_hot_pool_adjustment)(void);
+	int (* check_cold_pool_adjustment) (void);
+	int (* check_hot_pool_adjustment)(void);
 	void (* cold_pool_adjustment) (struct ftl_context_t *ptr_ftl_context_t);
 	void (* hot_pool_adjustment) (struct ftl_context_t *ptr_ftl_context_t);
 	void (* insert_pool)(struct ftl_context_t* ptr_ftl_context_t, struct flash_block_t* ptr_erase_block); 
 	void (* init_global_wear_leveling_metadata) (void); 
 	struct flash_block_t * (* get_min_max_ptr)(struct ftl_context_t *ptr_ftl_context, dual_pool_block_info *pool_info);
 	struct flash_block_t * (* get_erase_blk_ptr)(struct ftl_context_t *ptr_ftl_context, uint32_t target_bus, uint32_t target_chip, uint32_t target_block);
-	bool (* block_copy) (struct flash_block_t *ptr_src_block, struct flash_block_t *ptr_tgt_block, struct ftl_context_t *ptr_ftl_context);
+	int (* block_copy) (struct flash_block_t *ptr_src_block, struct flash_block_t *ptr_tgt_block, struct ftl_context_t *ptr_ftl_context);
 };
 */
 void check_max_min_nr_erase_cnt(struct ftl_context_t *ptr_ftl_context, struct flash_block_t* ptr_erase_block);
-bool check_cold_data_migration(struct ftl_context_t *ptr_ftl_context);
+int check_cold_data_migration(struct ftl_context_t *ptr_ftl_context);
 int32_t cold_data_migration(struct ftl_context_t* ptr_ftl_context_t);
 void update_max_min_nr_erase_cnt_in_pool(struct ftl_context_t *ptr_ftl_context, struct flash_block_t *ptr_target_block, int pool, int type, int min_max);
-bool check_cold_pool_adjustment(struct ftl_context_t *ptr_ftl_context);
-bool check_hot_pool_adjustment(struct ftl_context_t *ptr_ftl_context);
+int check_cold_pool_adjustment(struct ftl_context_t *ptr_ftl_context);
+int check_hot_pool_adjustment(struct ftl_context_t *ptr_ftl_context);
 void cold_pool_adjustment(struct ftl_context_t *ptr_ftl_context_t);
 void hot_pool_adjustment(struct ftl_context_t *ptr_ftl_context_t);
 struct flash_block_t *get_min_max_ptr(struct ftl_context_t *ptr_ftl_context, dual_pool_block_info *pool_info);
@@ -73,10 +72,10 @@ struct flash_block_t *get_erase_blk_ptr(struct ftl_context_t *ptr_ftl_context, u
 
 
 //added functions
-//bool block_data_swap(struct ftl_context_t *ptr_ftl_context);
-bool block_to_block_transfer(struct ftl_context_t *ptr_ftl_context, struct flash_block_t * ptr_victim_block, struct flash_block_t * ptr_reserved_block);
-bool rec_reset(struct ftl_context_t *ptr_ftl_context);
-bool block_pool_swap(struct ftl_context_t *ptr_ftl_context);
+//int block_data_swap(struct ftl_context_t *ptr_ftl_context);
+int block_to_block_transfer(struct ftl_context_t *ptr_ftl_context, struct flash_block_t * ptr_victim_block, struct flash_block_t * ptr_reserved_block);
+int rec_reset(struct ftl_context_t *ptr_ftl_context);
+int block_pool_swap(struct ftl_context_t *ptr_ftl_context);
 void find_new_ec_max(struct ftl_context_t *ptr_ftl_context, int pool, struct flash_block_t ** ptr_block);
 void find_new_ec_min(struct ftl_context_t *ptr_ftl_context, int pool, struct flash_block_t ** ptr_block);
 void find_new_rec_max(struct ftl_context_t *ptr_ftl_context, int pool, struct flash_block_t ** ptr_block);

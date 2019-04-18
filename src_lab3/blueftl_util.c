@@ -117,7 +117,8 @@ void perf_display_results (void)
 	printf ("bluessd: =====================================================================\n");
 
 	for (i = 0; i < 1024; i++) {
-		printf("%d\n", erase_cnt[i]);
+		printf("%d ", erase_cnt[i]);
 	}
+	printf("\nFinished!\n");
 }
 

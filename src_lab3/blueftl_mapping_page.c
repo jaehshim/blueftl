@@ -153,10 +153,10 @@ void init_global_wear_leveling_metadata(struct ftl_context_t *ptr_ftl_context)
 					}
 					if (hot_tail == 0)
 					{
-						if (ptr_block->is_reserved_block == 0)
+						if (ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2].is_reserved_block == 0)
 						{
-							ptr_ftl_context->hot_block_ec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
-							ptr_ftl_context->hot_block_rec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+							ptr_ftl_context->hot_block_ec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
+							ptr_ftl_context->hot_block_rec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
 							hot_tail++;
 						}
 					}
@@ -174,10 +174,10 @@ void init_global_wear_leveling_metadata(struct ftl_context_t *ptr_ftl_context)
 					}
 					if (cold_tail == 0)
 					{
-						if (ptr_block->is_reserved_block == 0)
+						if (ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2].is_reserved_block == 0)
 						{
-							ptr_ftl_context->cold_block_ec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
-							ptr_ftl_context->cold_block_rec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+							ptr_ftl_context->cold_block_ec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
+							ptr_ftl_context->cold_block_rec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
 							cold_tail++;
 						}
 					}
