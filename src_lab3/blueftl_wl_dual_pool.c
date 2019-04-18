@@ -96,8 +96,6 @@ void check_max_min_nr_erase_cnt(struct ftl_context_t *ptr_ftl_context, struct fl
 
 void cold_pool_adjustment(struct ftl_context_t *ptr_ftl_context)
 {
-    struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
-    struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
     struct flash_block_t * ptr_block = ptr_ftl_context->cold_block_rec_max;
 
     ptr_block->hot_cold_pool = HOT_POOL;
@@ -137,8 +135,6 @@ void cold_pool_adjustment(struct ftl_context_t *ptr_ftl_context)
 
 void hot_pool_adjustment(struct ftl_context_t *ptr_ftl_context)
 {
-    struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
-    struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
     struct flash_block_t * ptr_block = ptr_ftl_context->hot_block_ec_min;
 
     ptr_block->hot_cold_pool = COLD_POOL;
@@ -170,8 +166,6 @@ void hot_pool_adjustment(struct ftl_context_t *ptr_ftl_context)
 
 int32_t cold_data_migration(struct ftl_context_t *ptr_ftl_context)
 {
-    struct virtual_device_t *ptr_vdevice = ptr_ftl_context->ptr_vdevice;
-    struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
     struct ftl_page_mapping_context_t* ptr_pg_mapping = (struct ftl_page_mapping_context_t *)ptr_ftl_context->ptr_mapping;
     struct flash_block_t * ptr_reserved_block = ptr_pg_mapping->ptr_gc_block;
 
