@@ -185,21 +185,21 @@ int32_t gc_page_trigger_gc_lab (
 	ptr_pg_mapping->ptr_active_block = ptr_gc_block;
 	ptr_gc_block->is_reserved_block = 0;
 
-	check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_gc_block);
+	// check_max_min_nr_erase_cnt(ptr_ftl_context, ptr_gc_block);
 
-	if (check_cold_data_migration(ptr_ftl_context)) 
-		cold_data_migration(ptr_ftl_context);
+	// if (check_cold_data_migration(ptr_ftl_context)) 
+	// 	cold_data_migration(ptr_ftl_context);
 	
-	if (check_cold_pool_adjustment(ptr_ftl_context))
-		cold_pool_adjustment(ptr_ftl_context);
+	// if (check_cold_pool_adjustment(ptr_ftl_context))
+	// 	cold_pool_adjustment(ptr_ftl_context);
 
-	if (check_hot_pool_adjustment(ptr_ftl_context))
-		hot_pool_adjustment(ptr_ftl_context);
+	// if (check_hot_pool_adjustment(ptr_ftl_context))
+	// 	hot_pool_adjustment(ptr_ftl_context);
 
 
-	for(loop_page = 0; loop_page < 1024; loop_page++) {
-		update_erase_cnt(loop_page, ptr_ssd->list_buses[0].list_chips[0].list_blocks[loop_page].nr_erase_cnt);
-	}
+	// for(loop_page = 0; loop_page < 1024; loop_page++) {
+	// 	update_erase_cnt(loop_page, ptr_ssd->list_buses[0].list_chips[0].list_blocks[loop_page].nr_erase_cnt);
+	// }
 
 	return ret;
 }

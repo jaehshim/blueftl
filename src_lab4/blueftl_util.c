@@ -116,9 +116,9 @@ void perf_display_results (void)
 	printf ("bluessd: # of erasure count of the oldest blk: %u\n", _perf_wl_nr_maximum_erasures);
 	printf ("bluessd: =====================================================================\n");
 
-	for (i = 0; i < 1024; i++) {
-		printf("%d ", erase_cnt[i]);
-	}
-	printf("\nFinished!\n");
+	// for (i = 0; i < 1024; i++) {
+	// 	printf("%d ", erase_cnt[i]);
+	// }
+	// printf("\nFinished!\n");
 }
 

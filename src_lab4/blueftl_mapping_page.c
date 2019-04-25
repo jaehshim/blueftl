@@ -123,69 +123,69 @@ uint32_t init_ru_blocks(struct ftl_context_t *ptr_ftl_context)
 	return 0;
 }
 
-/* init wear leveling metadata */
-void init_global_wear_leveling_metadata(struct ftl_context_t *ptr_ftl_context)
-{
-	struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
-	struct flash_block_t *ptr_block = NULL;
-	int i, j, k;
-	int hot_head = 0, hot_tail = 0, cold_head = 0, cold_tail = 0;
+// /* init wear leveling metadata */
+// void init_global_wear_leveling_metadata(struct ftl_context_t *ptr_ftl_context)
+// {
+// 	struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
+// 	struct flash_block_t *ptr_block = NULL;
+// 	int i, j, k;
+// 	int hot_head = 0, hot_tail = 0, cold_head = 0, cold_tail = 0;
 
-	for (i = 0; i < ptr_ssd->nr_buses; i++)
-	{
-		for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
-		{
-			for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
-			{
-				ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
-				/* hot pool cold pool split */
-				ptr_block->hot_cold_pool = k % 2;
-				if (k % 2 == 0)
-				{ // hot pool
-					if (hot_head == 0)
-					{
-						if (ptr_block->is_reserved_block == 0)
-						{
-							ptr_ftl_context->hot_block_ec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
-							ptr_ftl_context->hot_block_rec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
-							hot_head++;
-						}
-					}
-					if (hot_tail == 0)
-					{
-						if (ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2].is_reserved_block == 0)
-						{
-							ptr_ftl_context->hot_block_ec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
-							ptr_ftl_context->hot_block_rec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
-							hot_tail++;
-						}
-					}
-				}
-				else
-				{ // cold pool
-					if (cold_head == 0)
-					{
-						if (ptr_block->is_reserved_block == 0)
-						{
-							ptr_ftl_context->cold_block_ec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
-							ptr_ftl_context->cold_block_rec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
-							cold_head++;
-						}
-					}
-					if (cold_tail == 0)
-					{
-						if (ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2].is_reserved_block == 0)
-						{
-							ptr_ftl_context->cold_block_ec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
-							ptr_ftl_context->cold_block_rec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
-							cold_tail++;
-						}
-					}
-				}
-			}
-		}
-	}
-}
+// 	for (i = 0; i < ptr_ssd->nr_buses; i++)
+// 	{
+// 		for (j = 0; j < ptr_ssd->nr_chips_per_bus; j++)
+// 		{
+// 			for (k = 0; k < ptr_ssd->nr_blocks_per_chip; k++)
+// 			{
+// 				ptr_block = &(ptr_ssd->list_buses[i].list_chips[j].list_blocks[k]);
+// 				/* hot pool cold pool split */
+// 				ptr_block->hot_cold_pool = k % 2;
+// 				if (k % 2 == 0)
+// 				{ // hot pool
+// 					if (hot_head == 0)
+// 					{
+// 						if (ptr_block->is_reserved_block == 0)
+// 						{
+// 							ptr_ftl_context->hot_block_ec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+// 							ptr_ftl_context->hot_block_rec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+// 							hot_head++;
+// 						}
+// 					}
+// 					if (hot_tail == 0)
+// 					{
+// 						if (ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2].is_reserved_block == 0)
+// 						{
+// 							ptr_ftl_context->hot_block_ec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
+// 							ptr_ftl_context->hot_block_rec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
+// 							hot_tail++;
+// 						}
+// 					}
+// 				}
+// 				else
+// 				{ // cold pool
+// 					if (cold_head == 0)
+// 					{
+// 						if (ptr_block->is_reserved_block == 0)
+// 						{
+// 							ptr_ftl_context->cold_block_ec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+// 							ptr_ftl_context->cold_block_rec_max = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k]);
+// 							cold_head++;
+// 						}
+// 					}
+// 					if (cold_tail == 0)
+// 					{
+// 						if (ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2].is_reserved_block == 0)
+// 						{
+// 							ptr_ftl_context->cold_block_ec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
+// 							ptr_ftl_context->cold_block_rec_min = &(ptr_ssd->list_buses[0].list_chips[0].list_blocks[k+2]);
+// 							cold_tail++;
+// 						}
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+// }
 
 struct ftl_context_t *page_mapping_create_ftl_context(struct virtual_device_t *ptr_vdevice)
 {
