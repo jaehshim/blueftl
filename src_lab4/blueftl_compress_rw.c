@@ -12,11 +12,12 @@
 #include "blueftl_compress_rw.h"
 #include "lzrw3.h"
 
-unsigned char read_buff[FLASH_PAGE_SIZE * (CHUNK_SIZE + 1)]; //header 공간을 위해 CHUNK_SIZE 보다 크게 줌. 압축이 안 될 경우 대비
-unsigned char write_buff[FLASH_PAGE_SIZE * (CHUNK_SIZE + 1)];
+struct rw_buffer_t cache_write_buff;
+
 int write_counter = -1; //write 요청 들어온 lpa 개수 count
-struct comp_header_t *comp_header;
-uint8_t write_buff[FLASH_PAGE_SIZE * CHUNK_SIZE];
+
+uint8_t * write_buff;
+uint8_t * compress_buff;
 
 uint32_t init_chunk_table(struct ftl_context_t *ptr_ftl_context)
 {
@@ -43,6 +44,8 @@ uint32_t init_chunk_table(struct ftl_context_t *ptr_ftl_context)
         ptr_chunk_table->ptr_ch_table[init_loop].nr_physical_pages = 0;
         ptr_chunk_table->ptr_ch_table[init_loop].comp_indi = COMP_FALSE;
     }
+
+    write_buff = (uint8_t *)malloc(sizeof(struct rw_buffer_t));
 
     return 0;
 }
@@ -77,11 +80,12 @@ void blueftl_compressed_page_read(
         (char *)temp_buff1);
 
     decompress(temp_buff1, ptr_vdevice->page_main_size * ppnum, temp_buff2); //압축 해제
-    
+
     for (i = 0; i < CHUNK_SIZE; i++) // header의 배열 탐색해서 맞는 page의 index 찾기 & 데이터 얻기
     {
-        if (*(temp_buff2 + i * sizeof(uint32_t)) == requested_lpa) {
-            ptr_page_data = temp_buff2 + sizeof(struct comp_header_t) + ptr_vdevice->page_main_size * i; //해당 lpa의 데이터 위치로 포인터 이동
+        if (*(temp_buff2 + i * sizeof(uint32_t)) == requested_lpa)
+        {
+            ptr_page_data = temp_buff2 + 4 * sizeof(uint32_t) + FLASH_PAGE_SIZE * i; //해당 lpa의 데이터 위치로 포인터 이동
             break;
         }
     }
@@ -98,29 +102,40 @@ void blueftl_compressed_page_write(
     int32_t page_length,
     char *ptr_page_data)
 {
-
+    UWORD comp_size;
 
     write_counter++; //counter increase
-    comp_header->comp_lba_array[write_counter] = requested_lpa; // lpa store
-    memcpy(write_buff + write_counter * FLASH_PAGE_SIZE, ptr_page_data, FLASH_PAGE_SIZE); //write data store
+    cache_write_buff.lpa_arr[write_counter] = requested_lpa; // store lpa
+    memcpy(&cache_write_buff.buff[FLASH_PAGE_SIZE * write_counter], ptr_page_data, FLASH_PAGE_SIZE); // store write data, buffer index not sure
 
-    if (write_counter == CHUNK_SIZE - 1)
+    if (write_counter == CHUNK_SIZE-1)
     {
-        uint8_t *comp_buff1 = calloc(FLASH_PAGE_SIZE * (CHUNK_SIZE+1));
-        uint8_t *comp_buff2 = calloc(FLASH_PAGE_SIZE * (CHUNK_SIZE+1));
 
         write_counter = -1; //카운터 초기화
         
-        memcpy(comp_buff1, comp_header, sizeof(struct comp_header_t)); // comp_buff1 에 header 기록
-        memcpy(comp_buff1 + sizeof(struct comp_header_t), write_buff, FLASH_PAGE_SIZE * CHUNK_SIZE); // comp_buff1 에 data 기록
-        compress(comp_buff1, sizeof(struct comp_header_t) + FLASH_PAGE_SIZE * CHUNK_SIZE, comp_buff2); // 헤더와 데이터 합쳐진 comp_buff1 압축
-        blueftl_user_vdevice_page_write (
-						ptr_vdevice, 
-						bus, chip, block, page, 
-						ptr_vdevice->page_main_size * (CHUNK_SIZE+1), 
-						(char*)ptr_lba_buff);
-
+        translate_write_buffer();
+        comp_size = compress(write_buff, sizeof(struct rw_buffer_t), compress_buff);
+        if (comp_size != -1) {
+            // write compressed pages
+        }
     }
     
 
+}
+
+void translate_write_buffer() { // cache_write_buffer에 담아놨던 정보들 write_buffer로 옮기기
+    uint8_t * tmp_ptr = write_buff;
+    int i;
+
+    for (i = 0; i < CHUNK_SIZE; i++)
+    {
+        memcpy(&cache_write_buff.lpa_arr[i], tmp_ptr, sizeof(uint32_t));
+        tmp_ptr += sizeof(uint32_t);
+    }
+
+       for (i = 0; i < CHUNK_SIZE; i++)
+    {
+        memcpy(&cache_write_buff.buff[FLASH_PAGE_SIZE * i], tmp_ptr, FLASH_PAGE_SIZE);
+        tmp_ptr += FLASH_PAGE_SIZE;
+    }
 }

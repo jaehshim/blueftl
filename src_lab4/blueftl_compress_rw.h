@@ -4,13 +4,6 @@
 #define COMP_FALSE 0
 #define COMP_TRUE 1
 
-
-struct comp_header_t
-{
-    uint32_t comp_lba_array[CHUNK_SIZE];
-
-};
-
 struct chunk_entry_t
 {
     uint32_t valid_page_count;
@@ -18,6 +11,11 @@ struct chunk_entry_t
     uint32_t comp_indi;
 };
 
+struct rw_buffer_t
+{
+    uint32_t lpa_arr[CHUNK_SIZE];
+    uint8_t buff[FLASH_PAGE_SIZE * CHUNK_SIZE];
+};
 
 struct chunk_table_t
 {
@@ -26,13 +24,6 @@ struct chunk_table_t
 };
 
 uint32_t init_chunk_table(struct ftl_context_t *ptr_ftl_context);
-void blueftl_compressed_page_read(
-    struct ftl_context_t *ptr_ftl_context,
-    struct virtual_device_t *ptr_vdevice,
-    int32_t requested_lpa,
-    int32_t bus,
-    int32_t chip,
-    int32_t block,
-    int32_t page,
-    int32_t page_length,
-    char *ptr_page_data);
+void blueftl_compressed_page_read(struct ftl_context_t *ptr_ftl_context, struct virtual_device_t *ptr_vdevice, int32_t requested_lpa,
+    int32_t bus, int32_t chip, int32_t block, int32_t page, int32_t page_length, char *ptr_page_data);
+void translate_write_buffer();
