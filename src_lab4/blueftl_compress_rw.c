@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "blueftl_ftl_base.h"
 #include "blueftl_ssdmgmt.h"
@@ -13,6 +14,9 @@
 
 unsigned char read_buff[FLASH_PAGE_SIZE * (CHUNK_SIZE + 1)]; //header 공간을 위해 CHUNK_SIZE 보다 크게 줌. 압축이 안 될 경우 대비
 unsigned char write_buff[FLASH_PAGE_SIZE * (CHUNK_SIZE + 1)];
+int write_counter = -1; //write 요청 들어온 lpa 개수 count
+struct comp_header_t *comp_header;
+uint8_t write_buff[FLASH_PAGE_SIZE * CHUNK_SIZE];
 
 uint32_t init_chunk_table(struct ftl_context_t *ptr_ftl_context)
 {
@@ -83,6 +87,40 @@ void blueftl_compressed_page_read(
     }
 }
 
-void blueftl_compressed_page_write()
+void blueftl_compressed_page_write(
+    struct ftl_context_t *ptr_ftl_context,
+    struct virtual_device_t *ptr_vdevice,
+    int32_t requested_lpa,
+    int32_t bus,
+    int32_t chip,
+    int32_t block,
+    int32_t page,
+    int32_t page_length,
+    char *ptr_page_data)
 {
+
+
+    write_counter++; //counter increase
+    comp_header->comp_lba_array[write_counter] = requested_lpa; // lpa store
+    memcpy(write_buff + write_counter * FLASH_PAGE_SIZE, ptr_page_data, FLASH_PAGE_SIZE); //write data store
+
+    if (write_counter == CHUNK_SIZE - 1)
+    {
+        uint8_t *comp_buff1 = calloc(FLASH_PAGE_SIZE * (CHUNK_SIZE+1));
+        uint8_t *comp_buff2 = calloc(FLASH_PAGE_SIZE * (CHUNK_SIZE+1));
+
+        write_counter = -1; //카운터 초기화
+        
+        memcpy(comp_buff1, comp_header, sizeof(struct comp_header_t)); // comp_buff1 에 header 기록
+        memcpy(comp_buff1 + sizeof(struct comp_header_t), write_buff, FLASH_PAGE_SIZE * CHUNK_SIZE); // comp_buff1 에 data 기록
+        compress(comp_buff1, sizeof(struct comp_header_t) + FLASH_PAGE_SIZE * CHUNK_SIZE, comp_buff2); // 헤더와 데이터 합쳐진 comp_buff1 압축
+        blueftl_user_vdevice_page_write (
+						ptr_vdevice, 
+						bus, chip, block, page, 
+						ptr_vdevice->page_main_size * (CHUNK_SIZE+1), 
+						(char*)ptr_lba_buff);
+
+    }
+    
+
 }
