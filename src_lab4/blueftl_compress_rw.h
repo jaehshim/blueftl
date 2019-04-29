@@ -1,6 +1,7 @@
 
 #define CHUNK_SIZE 4
 
+#define COMP_INIT -1
 #define COMP_FALSE 0
 #define COMP_TRUE 1
 
@@ -8,7 +9,7 @@ struct chunk_entry_t
 {
     uint32_t valid_page_count;
     uint32_t nr_physical_pages;
-    uint32_t comp_indi;
+    uint32_t compress_indicator;
 };
 
 struct rw_buffer_t

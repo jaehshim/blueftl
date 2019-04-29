@@ -18,6 +18,8 @@ int write_counter = -1; //write 요청 들어온 lpa 개수 count
 
 uint8_t * write_buff;
 uint8_t * compress_buff;
+uint32_t is_update[CHUNK_SIZE];
+uint32_t is_update_flag;
 
 uint32_t init_chunk_table(struct ftl_context_t *ptr_ftl_context)
 {
@@ -42,7 +44,7 @@ uint32_t init_chunk_table(struct ftl_context_t *ptr_ftl_context)
     {
         ptr_chunk_table->ptr_ch_table[init_loop].valid_page_count = 0;
         ptr_chunk_table->ptr_ch_table[init_loop].nr_physical_pages = 0;
-        ptr_chunk_table->ptr_ch_table[init_loop].comp_indi = COMP_FALSE;
+        ptr_chunk_table->ptr_ch_table[init_loop].compress_indicator = COMP_INIT;
     }
 
     write_buff = (uint8_t *)malloc(sizeof(struct rw_buffer_t));
@@ -65,29 +67,44 @@ void blueftl_compressed_page_read(
     struct chunk_table_t *ptr_chunk_table = (struct chunk_table_t *)ptr_ftl_context->ptr_chunk_table;
     int32_t requested_ppa;
     int32_t ppnum;
+    int32_t compress_flag;
     int i;
     uint8_t *temp_buff1 = NULL;
     uint8_t *temp_buff2 = NULL;
     UWORD comp_size;
 
+    for (i = 0; i<write_counter; i++) {
+        if (requested_lpa == cache_write_buff.lpa_arr[i]) {
+            ptr_page_data = &cache_write_buff.buff[FLASH_PAGE_SIZE * i];
+            printf("data exists in the cache write buffer\n");
+        }
+    }
+
     requested_ppa = ftl_convert_to_physical_page_address(bus, chip, block, page); // 요청된 bus chip block page에 대응되는 ppa 변환
     ppnum = ptr_chunk_table->ptr_ch_table[requested_ppa].nr_physical_pages; //chunk table에서 num of phy pages 읽음
+    compress_flag = ptr_chunk_table->ptr_ch_table[requested_ppa].compress_indicator;
 
     blueftl_user_vdevice_page_read( //vdevice read를 통해 해당 ppa에서 해당 chunk의 데이터 읽음
         ptr_vdevice,
         bus, chip, block, page,
-        ptr_vdevice->page_main_size * ppnum,
+        FLASH_PAGE_SIZE * ppnum,
         (char *)temp_buff1);
 
-    decompress(temp_buff1, ptr_vdevice->page_main_size * ppnum, temp_buff2); //압축 해제
-
-    for (i = 0; i < CHUNK_SIZE; i++) // header의 배열 탐색해서 맞는 page의 index 찾기 & 데이터 얻기
+    if (compress_flag) // compressed data 처리
     {
-        if (*(temp_buff2 + i * sizeof(uint32_t)) == requested_lpa)
+        decompress(temp_buff1, FLASH_PAGE_SIZE * ppnum, temp_buff2); //압축 해제
+
+        for (i = 0; i < CHUNK_SIZE; i++) // header의 배열 탐색해서 맞는 page의 index 찾기 & 데이터 얻기
         {
-            ptr_page_data = temp_buff2 + 4 * sizeof(uint32_t) + FLASH_PAGE_SIZE * i; //해당 lpa의 데이터 위치로 포인터 이동
-            break;
+            if (*(temp_buff2 + i * sizeof(uint32_t)) == requested_lpa)
+            {
+                ptr_page_data = temp_buff2 + 4 * sizeof(uint32_t) + FLASH_PAGE_SIZE * i; //해당 lpa의 데이터 위치로 포인터 이동
+                break;
+            }
         }
+    }
+    else { // 일반 page mapping data
+        ptr_page_data = temp_buff1;
     }
 }
 
@@ -103,24 +120,40 @@ void blueftl_compressed_page_write(
     char *ptr_page_data)
 {
     UWORD comp_size;
+    int32_t ppnum;
 
     write_counter++; //counter increase
     cache_write_buff.lpa_arr[write_counter] = requested_lpa; // store lpa
     memcpy(&cache_write_buff.buff[FLASH_PAGE_SIZE * write_counter], ptr_page_data, FLASH_PAGE_SIZE); // store write data, buffer index not sure
 
-    if (write_counter == CHUNK_SIZE-1)
+    if (write_counter == CHUNK_SIZE-1) // cache_write_buff is full
     {
-
         write_counter = -1; //카운터 초기화
-        
+
         translate_write_buffer();
         comp_size = compress(write_buff, sizeof(struct rw_buffer_t), compress_buff);
-        if (comp_size != -1) {
-            // write compressed pages
-        }
-    }
-    
+        if (comp_size != -1)
+        {
+            ppnum = comp_size % FLASH_PAGE_SIZE ? 1 : 0 + comp_size / FLASH_PAGE_SIZE; // calculate needed page numbers
 
+            /* ppnum개 만큼의 연속된 page 요청 */
+
+
+            /* ppnum개의 연속된 page vdevice_write */
+
+
+            /* mapping 정보 수정 -> loop 4번 */
+
+
+            /* is_update_flag 확인해서 is_update 배열 확인해서 처리 */
+
+
+            /* Data chunk table 기록 & update */
+
+
+        }
+
+    }
 }
 
 void translate_write_buffer() { // cache_write_buffer에 담아놨던 정보들 write_buffer로 옮기기

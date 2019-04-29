@@ -8,6 +8,7 @@
 #include "blueftl_util.h"
 #include "blueftl_user_vdevice.h"
 #include "blueftl_wl_dual_pool.h"
+#include "blueftl_compress_rw.h"
 
 unsigned char gc_buff[FLASH_PAGE_SIZE];
 
