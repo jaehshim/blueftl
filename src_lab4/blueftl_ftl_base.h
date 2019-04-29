@@ -42,7 +42,7 @@ struct ftl_context_t
 	void *ptr_mapping;
 	
 	/* private data for a chunk table */
-	void *ptr_chunk;
+	void *ptr_chunk_table;
 
 	/* virtual device */
 	struct virtual_device_t *ptr_vdevice;

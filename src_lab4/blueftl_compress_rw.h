@@ -1,3 +1,4 @@
+
 #define CHUNK_SIZE 4
 
 #define COMP_FALSE 0
@@ -15,7 +16,7 @@ struct chunk_entry_t
     uint32_t valid_page_count;
     uint32_t nr_physical_pages;
     uint32_t comp_indi;
-}
+};
 
 
 struct chunk_table_t
