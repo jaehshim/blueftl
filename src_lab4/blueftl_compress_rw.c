@@ -11,8 +11,8 @@
 #include "blueftl_util.h"
 #include "blueftl_compress_rw.h"
 
-unsigned char read_buff[FLASH_PAGE_SIZE * (chunk_size + 1)]; //header 공간을 위해 chunk_size 보다 크게 줌. 압축이 안 될 경우 대비
-unsigned char write_buff[FLASH_PAGE_SIZE * (chunk_size + 1)];
+unsigned char read_buff[FLASH_PAGE_SIZE * (CHUNK_SIZE + 1)]; //header 공간을 위해 CHUNK_SIZE 보다 크게 줌. 압축이 안 될 경우 대비
+unsigned char write_buff[FLASH_PAGE_SIZE * (CHUNK_SIZE + 1)];
 
 uint32_t init_chunk_table(struct ftl_context_t *ptr_ftl_context)
 {
@@ -63,22 +63,23 @@ void blueftl_compressed_page_read(
     int i;
     uint32_t *temp_buff1;
     uint32_t *temp_buff2;
-    uint32_t *header_buff;
 
-    requested_ppa = ftl_convert_to_physical_page_address(bus, chip, block, page); // 요청된 bus chip block page에 대응되는 ppa
+    requested_ppa = ftl_convert_to_physical_page_address(bus, chip, block, page); // 요청된 bus chip block page에 대응되는 ppa 변환
     ppnum = ptr_chunk_table->ptr_ch_table[requested_ppa].nr_physical_pages; //chunk table에서 num of phy pages 읽음
+
     blueftl_user_vdevice_page_read( //vdevice read를 통해 해당 ppa에서 해당 chunk의 데이터 읽음
         ptr_vdevice,
         bus, chip, block, page,
         ptr_vdevice->page_main_size * ppnum,
         (char *)temp_buff1);
+
     decompress(temp_buff1, ptr_vdevice->page_main_size * ppnum, temp_buff2); //압축 해제
-    header_buff = temp_buff2;
-    for (i=0; i<chunk_size; i++)
+
+    for (i = 0; i < CHUNK_SIZE; i++) // header의 배열 탐색해서 맞는 page의 index 찾기 & 데이터 얻기
     {
-        if (header_buff[i] == requested_lpa)
-        {
-            ptr_page_data = temp_buff2 + ptr_vdevice->page_main_size * i; //해당 lpa의 데이터 위치로 포인터 이동
+        if (*(temp_buff2 + i * sizeof(uint32_t)) == requested_lpa) {
+            ptr_page_data = temp_buff2 + sizeof(comp_header_t) + ptr_vdevice->page_main_size * i; //해당 lpa의 데이터 위치로 포인터 이동
+            break;
         }
     }
 }
