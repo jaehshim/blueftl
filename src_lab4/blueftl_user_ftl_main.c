@@ -76,8 +76,15 @@ int32_t blueftl_user_ftl_main (
 
 				if (_ftl_base.ftl_get_mapped_physical_page_address (
 						_ptr_ftl_context, lpa_curr, &bus, &chip, &block, &page) == 0) {
-					blueftl_user_vdevice_page_read (
+					// blueftl_user_vdevice_page_read (
+					// 	_ptr_vdevice,
+					// 	bus, chip, block, page, 
+					// 	_ptr_vdevice->page_main_size, 
+					//    (char*)ptr_lba_buff);
+					blueftl_compressed_page_read (
+						_ptr_ftl_context,
 						_ptr_vdevice,
+						lpa_curr,
 						bus, chip, block, page, 
 						_ptr_vdevice->page_main_size, 
 					   (char*)ptr_lba_buff);

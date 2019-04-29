@@ -13,6 +13,9 @@ struct ftl_page_mapping_context_t {
 	/* a page mapping table */
 	struct ftl_page_mapping_table_t* ptr_mapping_table;
 
+	/* a chunk table */
+	struct ftl_page_chunk_table* ptr_chunk_table;
+
 	/* blocks reserved for garbage collection */
 	struct flash_block_t* ptr_gc_block;
 
