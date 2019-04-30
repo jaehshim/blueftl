@@ -8,6 +8,7 @@
 #include "blueftl_mapping_page.h"
 #include "blueftl_gc_page.h"
 #include "blueftl_util.h"
+#include "blueftl_compress_rw.h"
 
 struct ftl_base_t ftl_base_page_mapping_lab = {
 	.ftl_create_ftl_context = page_mapping_create_ftl_context,
@@ -172,6 +173,8 @@ struct ftl_context_t *page_mapping_create_ftl_context(struct virtual_device_t *p
 		printf("blueftl_mapping_page: the memory allocation of the ru blocks failed\n");
 	}
 	init_ru_blocks(ptr_ftl_context);
+
+	init_chunk_table(ptr_ftl_context);
 
 	/* set virtual device */
 	ptr_ftl_context->ptr_vdevice = ptr_vdevice;
@@ -394,15 +397,16 @@ int32_t map_logical_to_physical(struct ftl_context_t *ptr_ftl_context, uint32_t 
 
 	if (ptr_erase_block->nr_free_pages > 0)
 	{
-		ptr_erase_block->nr_valid_pages++;
-		ptr_erase_block->nr_free_pages--;
+		// ptr_erase_block->nr_valid_pages++;
+		// ptr_erase_block->nr_free_pages--;
 
-		if (ptr_erase_block->list_pages[curr_page].page_status != PAGE_STATUS_FREE)
-		{
-			// the given page should be free
-			printf("blueftl_mapping_page: the given page should be free (%u) (%u)\n", ptr_erase_block->list_pages[curr_page].page_status, curr_page);
-			return -1;
-		}
+		/* in memory compression -> ppa 겹칠 수 있음 */
+		// if (ptr_erase_block->list_pages[curr_page].page_status != PAGE_STATUS_FREE)
+		// {
+		// 	// the given page should be free
+		// 	printf("blueftl_mapping_page: the given page should be free (%u) (%u)\n", ptr_erase_block->list_pages[curr_page].page_status, curr_page);
+		// 	return -1;
+		// }
 
 		ptr_erase_block->list_pages[curr_page].page_status = PAGE_STATUS_VALID;
 		ptr_erase_block->list_pages[curr_page].no_logical_page_addr = logical_page_address;

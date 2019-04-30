@@ -68,6 +68,7 @@ int32_t blueftl_user_ftl_main (
 	switch (req_dir) {
 		case NETLINK_READA:
 		case NETLINK_READ:
+			printf("NETLINK_READ\n");
 			for (lpa_curr = lpa_begin; lpa_curr < lpa_end; lpa_curr++) {
 				/* find a physical page address corresponding to a given lpa */
 				uint32_t bus, chip, page, block;
@@ -88,6 +89,7 @@ int32_t blueftl_user_ftl_main (
 						bus, chip, block, page, 
 						_ptr_vdevice->page_main_size, 
 					   (char*)ptr_lba_buff);
+					printf("read return\n");
 				} else {
 					/* the requested logical page is not mapped to any physical page */
 					/* simply ignore */
@@ -96,80 +98,21 @@ int32_t blueftl_user_ftl_main (
 			break;
 
 		case NETLINK_WRITE:
+			printf("NETLINK_WRITE\n");
 			for (lpa_curr = lpa_begin; lpa_curr < lpa_end; lpa_curr++) {
 				uint32_t bus, chip, block, page;
-				uint8_t* ptr_lba_buff = ptr_buffer + 
-					((lpa_curr - lpa_begin) * _ptr_vdevice->page_main_size);
+				uint8_t *ptr_lba_buff = ptr_buffer +
+										((lpa_curr - lpa_begin) * _ptr_vdevice->page_main_size);
 				uint8_t is_merge_needed = 0;
 
 				uint32_t free_page_physical_address = NULL;
-				
-				// /* get the new physical page address from the FTL */
-				// if (_ftl_base.ftl_get_free_physical_page_address (
-				// 		_ptr_ftl_context, lpa_curr, &bus, &chip, &block, &page) == -1) {
-				// 	/* there are no free pages; do garbage collection */
-				// 	if (_ftl_base.ftl_trigger_gc != NULL) {
-				// 		/* trigger gc */
-				// 		if (_ftl_base.ftl_trigger_gc (_ptr_ftl_context, bus, chip) == -1) {
-				// 			printf ("bluessd: oops! garbage collection failed.\n");
-				// 			ret = -1;
-				// 			goto failed;
-				// 		}
 
-				// 		/* garbage collection has been finished; chooses the new free page */
-				// 		if (_ftl_base.ftl_get_free_physical_page_address (
-				// 				_ptr_ftl_context, lpa_curr, &bus, &chip, &block, &page) == -1) {
-				// 			printf ("bluessd: there is not sufficient space in flash memory.\n");
-				// 			ret = -1;
-				// 			goto failed;
-				// 		}
-
-				// 		/* ok. we obtain new free space */
-				// 	} else if (_ftl_base.ftl_trigger_merge != NULL) {
-				// 		/* the FTL does not support gc,
-				// 		   so it is necessary to merge the new data with the existing data */
-				// 		is_merge_needed = 1;
-				// 	} else {
-				// 		printf ("bluessd: garbage collection is not registered\n");
-				// 		ret = -1;
-				// 		goto failed;
-				// 	}
-				// }
-
-				if (is_merge_needed == 0) {
-					/* perform a page write */
-					// blueftl_user_vdevice_page_write (
-					// 	_ptr_vdevice, 
-					// 	bus, chip, block, page, 
-					// 	_ptr_vdevice->page_main_size, 
-					// 	(char*)ptr_lba_buff);
-					blueftl_compressed_page_write (
-						_ptr_ftl_context,
-						_ptr_vdevice,
-						lpa_curr,
-						bus, chip, block, page, 
-						_ptr_vdevice->page_main_size, 
-					   (char*)ptr_lba_buff);
-
-					/* map the logical address to the new physical address */
-					if (_ftl_base.ftl_map_logical_to_physical (
-							_ptr_ftl_context, lpa_curr, bus, chip, block, page) == -1) {
-						printf ("bluessd: map_logical_to_physical failed\n");
-						ret = -1;
-						goto failed;
-					}
-				}
-				// else
-				// {
-				// 	/* trigger merge with new data */
-				// 	if (_ftl_base.ftl_trigger_merge(
-				// 			_ptr_ftl_context, lpa_curr, ptr_lba_buff, bus, chip, block) == -1)
-				// 	{
-				// 		printf("bluessd: block merge failed\n");
-				// 		ret = -1;
-				// 		goto failed;
-				// 	}
-				// }
+				blueftl_compressed_page_write(
+					_ptr_ftl_context,
+					_ptr_vdevice,
+					lpa_curr,
+					_ptr_vdevice->page_main_size,
+					(char *)ptr_lba_buff);
 			}
 			break;
 
