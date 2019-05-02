@@ -89,7 +89,6 @@ int32_t blueftl_user_ftl_main (
 						bus, chip, block, page, 
 						_ptr_vdevice->page_main_size, 
 					   (char*)ptr_lba_buff);
-					printf("read return\n");
 				} else {
 					/* the requested logical page is not mapped to any physical page */
 					/* simply ignore */

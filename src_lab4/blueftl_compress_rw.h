@@ -17,7 +17,7 @@ struct chunk_entry_t
 
 struct rw_buffer_t
 {
-    uint32_t lpa_arr[CHUNK_SIZE];
+    int32_t lpa_arr[CHUNK_SIZE];
     uint8_t buff[FLASH_PAGE_SIZE * CHUNK_SIZE];
 };
 
