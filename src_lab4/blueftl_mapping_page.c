@@ -339,51 +339,50 @@ int32_t map_logical_to_physical(struct ftl_context_t *ptr_ftl_context, uint32_t 
 		exit(1);
 		return -1;
 	}
-
 	// (2) change the status of the previous block.
 	// get the previous physical page address from the page mapping table
-	previous_physical_page_address = ptr_mapping_table->ptr_pg_table[logical_page_address];
+	// previous_physical_page_address = ptr_mapping_table->ptr_pg_table[logical_page_address];
 
 	// make the previous page invalid
-	if (previous_physical_page_address != PAGE_TABLE_FREE)
-	{
-		/* get the physical layout from the physical page address */
-		ftl_convert_to_ssd_layout(previous_physical_page_address, &curr_bus, &curr_chip, &curr_block, &curr_page);
+	// if (previous_physical_page_address != PAGE_TABLE_FREE)
+	// {
+	// 	/* get the physical layout from the physical page address */
+	// 	ftl_convert_to_ssd_layout(previous_physical_page_address, &curr_bus, &curr_chip, &curr_block, &curr_page);
 
-		/* get the erase block from the block mapping table */
-		ptr_erase_block = &(ptr_ssd->list_buses[curr_bus].list_chips[curr_chip].list_blocks[curr_block]);
+	// 	/* get the erase block from the block mapping table */
+	// 	ptr_erase_block = &(ptr_ssd->list_buses[curr_bus].list_chips[curr_chip].list_blocks[curr_block]);
 
-		/* update the last modified time */
-		ptr_erase_block->last_modified_time = timer_get_timestamp_in_sec();
+	// 	/* update the last modified time */
+	// 	ptr_erase_block->last_modified_time = timer_get_timestamp_in_sec();
 
-		/* increase the number of invalid pages while reducing the number of valid pages */
-		if (ptr_erase_block->nr_valid_pages > 0)
-		{
-			ptr_erase_block->nr_invalid_pages++;
-			ptr_erase_block->nr_valid_pages--;
+	// 	/* increase the number of invalid pages while reducing the number of valid pages */
+	// 	if (ptr_erase_block->nr_valid_pages > 0)
+	// 	{
+	// 	//	ptr_erase_block->nr_invalid_pages++;
+	// 	//	ptr_erase_block->nr_valid_pages--;
 
-			if (ptr_erase_block->list_pages[curr_page].page_status != PAGE_STATUS_VALID)
-			{
-				printf("blueftl_mapping_page: the previous page should be a valid status\n");
-				return -1;
-			}
+	// 		// if (ptr_erase_block->list_pages[curr_page].page_status != PAGE_STATUS_VALID)
+	// 		// {
+	// 		// 	printf("blueftl_mapping_page: the previous page should be a valid status\n");
+	// 		// 	return -1;
+	// 		// }
 
-			ptr_erase_block->list_pages[curr_page].page_status = PAGE_STATUS_INVALID;
-		}
-		else
-		{
-			printf("blueftl_mapping_page: nr_valid_pages is zero\n");
-			return -1;
-		}
+	// 		ptr_erase_block->list_pages[curr_page].page_status = PAGE_STATUS_INVALID;
+	// 	}
+	// 	else
+	// 	{
+	// 		printf("blueftl_mapping_page: nr_valid_pages is zero\n");
+	// 		return -1;
+	// 	}
 
-		/* see if the number of pages is correct */
-		if ((ptr_erase_block->nr_free_pages + ptr_erase_block->nr_valid_pages + ptr_erase_block->nr_invalid_pages) != ptr_ssd->nr_pages_per_block)
-		{
-			printf("blueftl_mapping_page: free:%u + valid:%u + invalid:%u is not %u\n",
-				   ptr_erase_block->nr_free_pages, ptr_erase_block->nr_valid_pages, ptr_erase_block->nr_invalid_pages, ptr_ssd->nr_pages_per_block);
-			return -1;
-		}
-	}
+	// 	/* see if the number of pages is correct */
+	// 	if ((ptr_erase_block->nr_free_pages + ptr_erase_block->nr_valid_pages + ptr_erase_block->nr_invalid_pages) != ptr_ssd->nr_pages_per_block)
+	// 	{
+	// 		printf("blueftl_mapping_page: free:%u + valid:%u + invalid:%u is not %u\n",
+	// 			   ptr_erase_block->nr_free_pages, ptr_erase_block->nr_valid_pages, ptr_erase_block->nr_invalid_pages, ptr_ssd->nr_pages_per_block);
+	// 		return -1;
+	// 	}
+	// }
 
 	// (3) change the status of the given block
 	ftl_convert_to_ssd_layout(physical_page_address, &curr_bus, &curr_chip, &curr_block, &curr_page);
@@ -419,13 +418,14 @@ int32_t map_logical_to_physical(struct ftl_context_t *ptr_ftl_context, uint32_t 
 		return -1;
 	}
 
+
 	// CHECK: see if the sum of different types of pages is the same as the number of pages in a block
-	if ((ptr_erase_block->nr_free_pages + ptr_erase_block->nr_valid_pages + ptr_erase_block->nr_invalid_pages) != ptr_ssd->nr_pages_per_block)
-	{
-		printf("blueftl_mapping_page: free:%u + valid:%u + invalid:%u is not %u\n",
-			   ptr_erase_block->nr_free_pages, ptr_erase_block->nr_valid_pages, ptr_erase_block->nr_invalid_pages, ptr_ssd->nr_pages_per_block);
-		return -1;
-	}
+	// if ((ptr_erase_block->nr_free_pages + ptr_erase_block->nr_valid_pages + ptr_erase_block->nr_invalid_pages) != ptr_ssd->nr_pages_per_block)
+	// {
+	// 	printf("blueftl_mapping_page: free:%u + valid:%u + invalid:%u is not %u\n",
+	// 		   ptr_erase_block->nr_free_pages, ptr_erase_block->nr_valid_pages, ptr_erase_block->nr_invalid_pages, ptr_ssd->nr_pages_per_block);
+	// 	return -1;
+	// }
 
 	// (4) map the given logical page address to the physical page address
 	ptr_mapping_table->ptr_pg_table[logical_page_address] = physical_page_address;
@@ -538,6 +538,5 @@ int32_t page_mapping_map_logical_to_physical(
 	uint32_t page)
 {
 	uint32_t physical_page_address = ftl_convert_to_physical_page_address(bus, chip, block, page);
-
 	return map_logical_to_physical(ptr_ftl_context, logical_page_address, physical_page_address);
 }

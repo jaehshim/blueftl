@@ -68,7 +68,7 @@ int32_t blueftl_user_ftl_main (
 	switch (req_dir) {
 		case NETLINK_READA:
 		case NETLINK_READ:
-			printf("NETLINK_READ\n");
+			//printf("NETLINK_READ\n");
 			for (lpa_curr = lpa_begin; lpa_curr < lpa_end; lpa_curr++) {
 				/* find a physical page address corresponding to a given lpa */
 				uint32_t bus, chip, page, block;
