@@ -97,14 +97,11 @@ int32_t blueftl_user_ftl_main (
 			break;
 
 		case NETLINK_WRITE:
-			printf("NETLINK_WRITE\n");
+			//printf("NETLINK_WRITE\n");
 			for (lpa_curr = lpa_begin; lpa_curr < lpa_end; lpa_curr++) {
 				uint32_t bus, chip, block, page;
 				uint8_t *ptr_lba_buff = ptr_buffer +
 										((lpa_curr - lpa_begin) * _ptr_vdevice->page_main_size);
-				uint8_t is_merge_needed = 0;
-
-				uint32_t free_page_physical_address = NULL;
 
 				blueftl_compressed_page_write(
 					_ptr_ftl_context,
