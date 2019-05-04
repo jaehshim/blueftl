@@ -332,7 +332,6 @@ int32_t map_logical_to_physical(struct ftl_context_t *ptr_ftl_context, uint32_t 
 	uint32_t curr_bus, curr_chip, curr_block, curr_page;
 	uint32_t previous_physical_page_address;
 
-	printf("in 0\n");
 	// (1) see if the given addresses are valid or not
 	if (is_valid_address_range(ptr_ftl_context, logical_page_address) != 1)
 	{
@@ -384,7 +383,6 @@ int32_t map_logical_to_physical(struct ftl_context_t *ptr_ftl_context, uint32_t 
 	// 		return -1;
 	// 	}
 	// }
-	printf("in 1\n");
 	// (3) change the status of the given block
 	ftl_convert_to_ssd_layout(physical_page_address, &curr_bus, &curr_chip, &curr_block, &curr_page);
 
@@ -394,7 +392,6 @@ int32_t map_logical_to_physical(struct ftl_context_t *ptr_ftl_context, uint32_t 
 			   curr_bus, curr_chip, curr_block, curr_page);
 		return -1;
 	}
-	printf("in 2\n");
 
 	if (ptr_erase_block->nr_free_pages > 0)
 	{
@@ -419,7 +416,6 @@ int32_t map_logical_to_physical(struct ftl_context_t *ptr_ftl_context, uint32_t 
 		printf("blueftl_mapping_page: nr_free_page is zero before writing the data into flash memory\n");
 		return -1;
 	}
-	printf("in 3\n");
 
 
 	// CHECK: see if the sum of different types of pages is the same as the number of pages in a block
@@ -432,8 +428,6 @@ int32_t map_logical_to_physical(struct ftl_context_t *ptr_ftl_context, uint32_t 
 
 	// (4) map the given logical page address to the physical page address
 	ptr_mapping_table->ptr_pg_table[logical_page_address] = physical_page_address;
-	printf("in 4\n");
-
 
 	return 0;
 }
@@ -543,6 +537,5 @@ int32_t page_mapping_map_logical_to_physical(
 	uint32_t page)
 {
 	uint32_t physical_page_address = ftl_convert_to_physical_page_address(bus, chip, block, page);
-	printf("start\n");
 	return map_logical_to_physical(ptr_ftl_context, logical_page_address, physical_page_address);
 }

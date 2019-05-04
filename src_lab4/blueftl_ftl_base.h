@@ -32,6 +32,9 @@ struct ftl_context_t
 	uint32_t recent_block;
 	uint32_t recent_page;
 
+	// uint32_t gc_counter;
+	// struct rw_buffer_t gc_write_buff;
+
 	// hot/cold 의 head/tail 추적용
 	struct flash_block_t *hot_block_ec_max;
 	struct flash_block_t *hot_block_ec_min;
@@ -42,10 +45,6 @@ struct ftl_context_t
 	struct flash_block_t *hot_block_rec_min;
 	struct flash_block_t *cold_block_rec_max;
 	struct flash_block_t *cold_block_rec_min;
-
-	uint32_t gc_counter;
-	struct rw_buffer_t gc_write_buff;
-	uint32_t no_need;	
 
 	/* all about SSD */
 	struct flash_ssd_t *ptr_ssd;

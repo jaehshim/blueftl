@@ -91,16 +91,6 @@ void blueftl_compressed_page_read(
         }
     }
 
-    for (i = 0; i < ptr_ftl_context->gc_counter; i++) 
-    {
-        if (requested_lpa == ptr_ftl_context->gc_write_buff.lpa_arr[i])
-        {
-            memcpy(page_data, &(ptr_ftl_context->gc_write_buff.buff[FLASH_PAGE_SIZE * i]), FLASH_PAGE_SIZE);
-        //    printf("data exists in the cache write buffer %d\n", i);
-            return;
-        }
-    }
-
     requested_ppa = ftl_convert_to_physical_page_address(bus, chip, block, page); // 요청된 bus chip block page에 대응되는 ppa 변환
     ppnum = ptr_chunk_table->ptr_ch_table[requested_ppa/32].nr_physical_pages;       //chunk table에서 num of phy pages 읽음
     compress_flag = ptr_chunk_table->ptr_ch_table[requested_ppa/32].compress_indicator;
