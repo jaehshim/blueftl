@@ -34,7 +34,7 @@ uint32_t init_chunk_table(struct ftl_context_t *ptr_ftl_context)
 
     ptr_chunk_table = (struct chunk_table_t *)ptr_ftl_context->ptr_chunk_table;
     ptr_chunk_table->nr_chunk_table_entries =
-        ptr_ssd->nr_buses * ptr_ssd->nr_chips_per_bus * ptr_ssd->nr_blocks_per_chip * ptr_ssd->nr_pages_per_block;
+        ptr_ssd->nr_buses * ptr_ssd->nr_chips_per_bus * ptr_ssd->nr_blocks_per_chip * ptr_ssd->nr_pages_per_block * 32;
 
     /* allocate the memory for the chunk table */
     if ((ptr_chunk_table->ptr_ch_table = (struct chunk_entry_t *)malloc(ptr_chunk_table->nr_chunk_table_entries * sizeof(struct chunk_entry_t))) == NULL)
@@ -154,7 +154,7 @@ void blueftl_compressed_page_write(
     struct flash_block_t *ptr_block;
     int32_t update_bus, update_chip, update_block, update_page;
     int32_t header_data;
-
+    
     /* 기존 flash에 존재하던 데이터의 업데이트는 배열에 표시해줌 */
     if (page_mapping_get_mapped_physical_page_address(ptr_ftl_context, requested_lpa, &update_bus, &update_chip, &update_block, &update_page) != -1)
     {
@@ -209,19 +209,18 @@ void blueftl_compressed_page_write(
             {
                 if (is_update[i] == UPDATE)
                 {
-                    printf("CHUNK is update %d\n", cache_write_buff.lpa_arr[i]);
+                    printf("CHUNK is update %d %d \n", cache_write_buff.lpa_arr[i], physical_page_address);
                     page_mapping_get_mapped_physical_page_address(ptr_ftl_context, cache_write_buff.lpa_arr[i], &update_bus, &update_chip, &update_block, &update_page);
                     uint32_t physical_page_address = ftl_convert_to_physical_page_address(update_bus, update_chip, update_block, update_page);
-                    uint32_t temp_ppnum = ptr_chunk_table->ptr_ch_table[physical_page_address/32].nr_physical_pages;
-                    for (j = 0; j < temp_ppnum; j++) // 해당 chunk 전체에 대해 valid page count 1씩 감소
+                    uint32_t temp_ppnum = ptr_chunk_table->ptr_ch_table[physical_page_address / 32].nr_physical_pages;
+
+                    ptr_block = &(ptr_ssd->list_buses[update_bus].list_chips[update_chip].list_blocks[update_block]);
+                    ptr_block->nr_invalid_pages++;
+
+                        for (j = 0; j < temp_ppnum; j++) // 해당 chunk 전체에 대해 valid page count 1씩 감소
                     {
                         if (--ptr_chunk_table->ptr_ch_table[(physical_page_address + j)/32].valid_page_count < 0)
                             printf("valid page count negative\n");
-                        // else if (--ptr_chunk_table->ptr_ch_table[physical_page_address + j].valid_page_count == 0)
-                        // {
-                        //     ptr_block = &(ptr_ssd->list_buses[update_bus].list_chips[update_chip].list_blocks[update_block]);
-                        //     ptr_block->list_pages[page + i].page_status = PAGE_STATUS_INVALID;
-                        // }
                         // valid page count 1감소, 0보다작으면 오류메시지
                     }
                 }
