@@ -10,9 +10,9 @@
 
 struct chunk_entry_t
 {
-    uint32_t valid_page_count;
-    uint32_t nr_physical_pages;
-    uint32_t compress_indicator;
+    uint8_t valid_page_count;
+    uint8_t nr_physical_pages;
+    int8_t compress_indicator;
 };
 
 struct rw_buffer_t
