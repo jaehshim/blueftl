@@ -16,6 +16,14 @@
 #define WL_POLICY_NONE 1
 #define WL_DUAL_POOL 2
 
+#define CHUNK_SIZE 4
+
+struct rw_buffer_t
+{
+    int32_t lpa_arr[CHUNK_SIZE];
+    uint8_t buff[FLASH_PAGE_SIZE * CHUNK_SIZE];
+};
+
 struct ftl_context_t
 {
 	// 이전에 쓰고 있던 block 추적용
@@ -34,6 +42,10 @@ struct ftl_context_t
 	struct flash_block_t *hot_block_rec_min;
 	struct flash_block_t *cold_block_rec_max;
 	struct flash_block_t *cold_block_rec_min;
+
+	uint32_t gc_counter;
+	struct rw_buffer_t gc_write_buff;
+	uint32_t no_need;	
 
 	/* all about SSD */
 	struct flash_ssd_t *ptr_ssd;

@@ -81,12 +81,22 @@ void blueftl_compressed_page_read(
     UWORD comp_size;
     int flag = 0;
 
-    for (i = 0; i < write_counter; i++)
+    for (i = 0; i < write_counter; i++) // cache
     {
         if (requested_lpa == cache_write_buff.lpa_arr[i])
         {
             memcpy(page_data, &(cache_write_buff.buff[FLASH_PAGE_SIZE * i]), FLASH_PAGE_SIZE);
-            printf("data exists in the cache write buffer %d\n", i);
+        //    printf("data exists in the cache write buffer %d\n", i);
+            return;
+        }
+    }
+
+    for (i = 0; i < ptr_ftl_context->gc_counter; i++) 
+    {
+        if (requested_lpa == ptr_ftl_context->gc_write_buff.lpa_arr[i])
+        {
+            memcpy(page_data, &(ptr_ftl_context->gc_write_buff.buff[FLASH_PAGE_SIZE * i]), FLASH_PAGE_SIZE);
+        //    printf("data exists in the cache write buffer %d\n", i);
             return;
         }
     }
@@ -95,14 +105,26 @@ void blueftl_compressed_page_read(
     ppnum = ptr_chunk_table->ptr_ch_table[requested_ppa/32].nr_physical_pages;       //chunk table에서 num of phy pages 읽음
     compress_flag = ptr_chunk_table->ptr_ch_table[requested_ppa/32].compress_indicator;
 
-    temp_buff1 = (uint8_t *)malloc(FLASH_PAGE_SIZE * 10);
-    temp_buff2 = (uint8_t *)malloc(FLASH_PAGE_SIZE * 10);
+    temp_buff1 = (uint8_t *)malloc(sizeof(struct rw_buffer_t));
+    temp_buff2 = (uint8_t *)malloc(sizeof(struct rw_buffer_t));
 
-    blueftl_user_vdevice_page_read( //vdevice read를 통해 해당 ppa에서 해당 chunk의 데이터 읽음
-        ptr_vdevice,
-        bus, chip, block, page,
-        FLASH_PAGE_SIZE * ppnum,
-        (char *)temp_buff1);
+    memset(temp_buff1, 0, sizeof(struct rw_buffer_t));
+    memset(temp_buff2, 0, sizeof(struct rw_buffer_t));
+
+    if (ppnum == 0)
+    {
+        printf("Wrong ppnum!!\n");
+        exit(1);
+    }
+
+    for (i = 0; i < ppnum; i++)
+    {
+        blueftl_user_vdevice_page_read(
+            ptr_vdevice,
+            bus, chip, block, page + i,
+            FLASH_PAGE_SIZE,
+            (char *)temp_buff1 + (i * FLASH_PAGE_SIZE));
+    }
 
     if (compress_flag) // compressed data 처리
     {
@@ -158,7 +180,7 @@ void blueftl_compressed_page_write(
     /* 기존 flash에 존재하던 데이터의 업데이트는 배열에 표시해줌 */
     if (page_mapping_get_mapped_physical_page_address(ptr_ftl_context, requested_lpa, &update_bus, &update_chip, &update_block, &update_page) != -1)
     {
-        printf("update data\n");
+    //    printf("update data\n");
         is_update[write_counter] = UPDATE;
     }
 
@@ -167,12 +189,11 @@ void blueftl_compressed_page_write(
     {
         if (requested_lpa == cache_write_buff.lpa_arr[i])
         {
-            printf("buffering data update\n");
+        //    printf("buffering data update\n");
             memcpy(&cache_write_buff.buff[FLASH_PAGE_SIZE * i], page_data, FLASH_PAGE_SIZE); // store write data, buffer index not sure
             return;                                                                          // 버퍼링된 데이터의 업데이트인 경우 버퍼만 바꿔 주고 즉시 return
         }
     }
-    printf("1\n");
     //counter increase
     cache_write_buff.lpa_arr[write_counter] = requested_lpa;                                     // store lpa
     memcpy(&cache_write_buff.buff[FLASH_PAGE_SIZE * write_counter], page_data, FLASH_PAGE_SIZE); // store write data, buffer index not sure
@@ -182,7 +203,6 @@ void blueftl_compressed_page_write(
     {
         translate_write_buffer();
         comp_size = compress(write_buff, sizeof(struct rw_buffer_t), compress_buff);
-        printf("2\n");
         if (comp_size != -1)
         {
             ppnum = comp_size % FLASH_PAGE_SIZE ? 1 : 0 + comp_size / FLASH_PAGE_SIZE; // calculate needed page numbers
@@ -192,42 +212,42 @@ void blueftl_compressed_page_write(
             {
                 printf("call gc\n");
                 gc_page_trigger_gc_lab(ptr_ftl_context, ptr_pg_mapping->ru_bus, ptr_pg_mapping->ptr_ru_chips[ptr_pg_mapping->ru_bus]);
+                printf("finished gc\n");
                 if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
                     printf("something wrong in gc\n");
             } // target_ppa에 연속된 free physical_page의 시작 주소 가져옴
-            printf("3\n");
 
             /* ppnum개의 연속된 page vdevice_write */
             ftl_convert_to_ssd_layout(target_ppa, &bus, &chip, &block, &page); // ppa를 bus,chip,block,page로 바꿔줌
-            printf("3.5 "); 
-            printf("%d %d %d\n", ppnum, block, page);
-            blueftl_user_vdevice_page_write(
-                ptr_vdevice,
-                bus, chip, block, page,
-                FLASH_PAGE_SIZE * ppnum,
-                (char *)compress_buff);
-            printf("3.7\n"); 
+            
+            for (i = 0; i < ppnum; i++)
+            {
+                blueftl_user_vdevice_page_write(
+                    ptr_vdevice,
+                    bus, chip, block, page + i,
+                    FLASH_PAGE_SIZE,
+                    (char *)compress_buff+(i*FLASH_PAGE_SIZE));
+            }
 
             /* is_update_flag 확인해서 is_update 배열 확인해서 처리 -> data chunk table에서 값 수정*/
             for (i = 0; i < CHUNK_SIZE; i++)
             {
                 if (is_update[i] == UPDATE)
                 {
-                    printf("CHUNK is update %d\n", cache_write_buff.lpa_arr[i]);
+                //    printf("CHUNK is update %d\n", cache_write_buff.lpa_arr[i]);
                     page_mapping_get_mapped_physical_page_address(ptr_ftl_context, cache_write_buff.lpa_arr[i], &update_bus, &update_chip, &update_block, &update_page);
                     uint32_t physical_page_address = ftl_convert_to_physical_page_address(update_bus, update_chip, update_block, update_page);
                     uint32_t temp_ppnum = ptr_chunk_table->ptr_ch_table[physical_page_address/32].nr_physical_pages;
 
                     ptr_block = &(ptr_ssd->list_buses[update_bus].list_chips[update_chip].list_blocks[update_block]);
                     ptr_block->nr_invalid_pages++;
-                    printf("4\n");
+
                     for (j = 0; j < temp_ppnum; j++) // 해당 chunk 전체에 대해 valid page count 1씩 감소
                     {
                         if (--ptr_chunk_table->ptr_ch_table[(physical_page_address + j)/32].valid_page_count < 0)
                             printf("valid page count negative\n");
                         // valid page count 1감소, 0보다작으면 오류메시지
                     }
-                    printf("4.5\n");
                 }
             }
             /* mapping 정보 수정 -> loop 4번 */
@@ -245,7 +265,6 @@ void blueftl_compressed_page_write(
                 ptr_block->list_pages[page + i].page_status = PAGE_STATUS_VALID;
                 ptr_block->list_pages[page + i].no_logical_page_addr = cache_write_buff.lpa_arr[i];
             }
-            printf("5\n");
             
             /* Data chunk table entry 삽입 */
             for (i = 0; i < ppnum; i++)
@@ -264,7 +283,7 @@ void blueftl_compressed_page_write(
                 /* ppnum개 만큼의 연속된 page 요청 */
                 if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
                 {
-                    printf("call gc\n");
+                //    printf("call gc\n");
                     gc_page_trigger_gc_lab(ptr_ftl_context, ptr_pg_mapping->ru_bus, ptr_pg_mapping->ptr_ru_chips[ptr_pg_mapping->ru_bus]);
                     if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
                         printf("something wrong in gc\n");
@@ -281,7 +300,7 @@ void blueftl_compressed_page_write(
 
                 if (is_update[i] == UPDATE)
                 {
-                    printf("SINGLE is update %d\n", cache_write_buff.lpa_arr[i]);
+                //    printf("SINGLE is update %d\n", cache_write_buff.lpa_arr[i]);
                     page_mapping_get_mapped_physical_page_address(ptr_ftl_context, cache_write_buff.lpa_arr[i], &update_bus, &update_chip, &update_block, &update_page);
                     uint32_t physical_page_address = ftl_convert_to_physical_page_address(update_bus, update_chip, update_block, update_page);
                     uint32_t temp_ppnum = ptr_chunk_table->ptr_ch_table[physical_page_address/32].nr_physical_pages;
@@ -324,7 +343,6 @@ void blueftl_compressed_page_write(
         /* 정보 초기화 */
         write_counter = 0; //카운터 초기화
         is_update_flag = 0;
-        printf("end\n");
     }
 }
 
