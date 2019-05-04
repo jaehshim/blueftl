@@ -154,7 +154,7 @@ void blueftl_compressed_page_write(
     struct flash_block_t *ptr_block;
     int32_t update_bus, update_chip, update_block, update_page;
     int32_t header_data;
-    
+
     /* 기존 flash에 존재하던 데이터의 업데이트는 배열에 표시해줌 */
     if (page_mapping_get_mapped_physical_page_address(ptr_ftl_context, requested_lpa, &update_bus, &update_chip, &update_block, &update_page) != -1)
     {
@@ -209,15 +209,15 @@ void blueftl_compressed_page_write(
             {
                 if (is_update[i] == UPDATE)
                 {
-                    printf("CHUNK is update %d %d \n", cache_write_buff.lpa_arr[i], physical_page_address);
+                    printf("CHUNK is update %d\n", cache_write_buff.lpa_arr[i]);
                     page_mapping_get_mapped_physical_page_address(ptr_ftl_context, cache_write_buff.lpa_arr[i], &update_bus, &update_chip, &update_block, &update_page);
                     uint32_t physical_page_address = ftl_convert_to_physical_page_address(update_bus, update_chip, update_block, update_page);
-                    uint32_t temp_ppnum = ptr_chunk_table->ptr_ch_table[physical_page_address / 32].nr_physical_pages;
+                    uint32_t temp_ppnum = ptr_chunk_table->ptr_ch_table[physical_page_address/32].nr_physical_pages;
 
                     ptr_block = &(ptr_ssd->list_buses[update_bus].list_chips[update_chip].list_blocks[update_block]);
                     ptr_block->nr_invalid_pages++;
 
-                        for (j = 0; j < temp_ppnum; j++) // 해당 chunk 전체에 대해 valid page count 1씩 감소
+                    for (j = 0; j < temp_ppnum; j++) // 해당 chunk 전체에 대해 valid page count 1씩 감소
                     {
                         if (--ptr_chunk_table->ptr_ch_table[(physical_page_address + j)/32].valid_page_count < 0)
                             printf("valid page count negative\n");
@@ -238,14 +238,15 @@ void blueftl_compressed_page_write(
                 ptr_block->nr_free_pages--;
 
                 ptr_block->list_pages[page + i].page_status = PAGE_STATUS_VALID;
+                ptr_block->list_pages[page + i].no_logical_page_addr = cache_write_buff.lpa_arr[i];
             }
 
             /* Data chunk table entry 삽입 */
             for (i = 0; i < ppnum; i++)
             {
-                ptr_chunk_table->ptr_ch_table[(target_ppa + i)/32].compress_indicator = COMP_TRUE;
-                ptr_chunk_table->ptr_ch_table[(target_ppa + i)/32].nr_physical_pages = ppnum;
-                ptr_chunk_table->ptr_ch_table[(target_ppa + i)/32].valid_page_count = CHUNK_SIZE;
+                ptr_chunk_table->ptr_ch_table[(target_ppa/32)+i].compress_indicator = COMP_TRUE;
+                ptr_chunk_table->ptr_ch_table[(target_ppa/32)+i].nr_physical_pages = ppnum;
+                ptr_chunk_table->ptr_ch_table[(target_ppa/32)+i].valid_page_count = CHUNK_SIZE;
             }
         }
         else
@@ -270,7 +271,7 @@ void blueftl_compressed_page_write(
                     ptr_vdevice,
                     bus, chip, block, page,
                     FLASH_PAGE_SIZE * ppnum,
-                    (char *)compress_buff);
+                    (char *)&(cache_write_buff.buff[i*FLASH_PAGE_SIZE]));
 
                 if (is_update[i] == UPDATE)
                 {
@@ -278,6 +279,9 @@ void blueftl_compressed_page_write(
                     page_mapping_get_mapped_physical_page_address(ptr_ftl_context, cache_write_buff.lpa_arr[i], &update_bus, &update_chip, &update_block, &update_page);
                     uint32_t physical_page_address = ftl_convert_to_physical_page_address(update_bus, update_chip, update_block, update_page);
                     uint32_t temp_ppnum = ptr_chunk_table->ptr_ch_table[physical_page_address/32].nr_physical_pages;
+
+                    ptr_block = &(ptr_ssd->list_buses[update_bus].list_chips[update_chip].list_blocks[update_block]);
+                    ptr_block->nr_invalid_pages++;
 
                     for (j = 0; j < temp_ppnum; j++) // 해당 chunk 전체에 대해 valid page count 1씩 감소
                     {
@@ -295,7 +299,8 @@ void blueftl_compressed_page_write(
                 //ptr_block->nr_valid_pages++;
                 ptr_block->nr_free_pages--;
 
-                ptr_block->list_pages[page + i].page_status = PAGE_STATUS_VALID;
+                ptr_block->list_pages[page].page_status = PAGE_STATUS_VALID;
+                ptr_block->list_pages[page].no_logical_page_addr = cache_write_buff.lpa_arr[i];
 
                 /* Data chunk table entry 삽입 */
                 ptr_chunk_table->ptr_ch_table[target_ppa/32].compress_indicator = COMP_FALSE;

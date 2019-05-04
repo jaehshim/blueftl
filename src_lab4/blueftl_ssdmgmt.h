@@ -24,7 +24,6 @@ struct flash_block_t {
 	uint32_t nr_valid_pages;
 	uint32_t nr_invalid_pages;
 	uint32_t nr_free_pages;
-	uint32_t nr_invalid_pages_for_compress;
 
 	/* the number of erasure operations */
 	int32_t nr_erase_cnt;
