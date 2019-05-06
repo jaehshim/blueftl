@@ -125,7 +125,7 @@ void blueftl_compressed_page_read(
             memcpy(&header_data, temp_buff2 + i * sizeof(int32_t), sizeof(int32_t));
             if (header_data == requested_lpa)
             {
-                memcpy(page_data, temp_buff2 + 4 * sizeof(int32_t) + FLASH_PAGE_SIZE * i, FLASH_PAGE_SIZE);
+                memcpy(page_data, temp_buff2 + CHUNK_SIZE * sizeof(int32_t) + FLASH_PAGE_SIZE * i, FLASH_PAGE_SIZE);
                 flag = 1;
                 break;
             }
@@ -165,7 +165,7 @@ void blueftl_compressed_page_write(
     int32_t bus, chip, block, page;
     struct flash_block_t *ptr_block;
     int32_t update_bus, update_chip, update_block, update_page;
-    int32_t header_data;
+    int32_t header_data, header;
 
     /* 기존 flash에 존재하던 데이터의 업데이트는 배열에 표시해줌 */
     if (page_mapping_get_mapped_physical_page_address(ptr_ftl_context, requested_lpa, &update_bus, &update_chip, &update_block, &update_page) != -1)
@@ -192,6 +192,7 @@ void blueftl_compressed_page_write(
     if (write_counter == CHUNK_SIZE) // cache_write_buff is full
     {
         translate_write_buffer();
+        
         comp_size = compress(write_buff, sizeof(struct rw_buffer_t), compress_buff);
         if (comp_size != -1)
         {
@@ -209,7 +210,17 @@ void blueftl_compressed_page_write(
 
             /* ppnum개의 연속된 page vdevice_write */
             ftl_convert_to_ssd_layout(target_ppa, &bus, &chip, &block, &page); // ppa를 bus,chip,block,page로 바꿔줌
-            
+
+            for (i = 0; i < CHUNK_SIZE; i++)
+            {
+                memcpy(&header, write_buff + i * sizeof(int32_t), sizeof(int32_t));
+            //    printf("%d %d\n", cache_write_buff.lpa_arr[i], header);
+                if (is_valid_address_range(ptr_ftl_context, header) != 1) {
+                    printf("Invalid lpa while writing in rw\n");
+                    exit(1);
+                }
+            }
+
             for (i = 0; i < ppnum; i++)
             {
                 blueftl_user_vdevice_page_write(
