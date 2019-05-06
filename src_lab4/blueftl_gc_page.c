@@ -26,6 +26,7 @@ struct flash_block_t *gc_page_select_victim_greedy(
 {
    struct flash_block_t *ptr_victim_block = NULL;
    struct flash_ssd_t *ptr_ssd = ptr_ftl_context->ptr_ssd;
+   struct ftl_page_mapping_context_t *ptr_pg_mapping = (struct ftl_page_mapping_context_t *)ptr_ftl_context->ptr_mapping;
 
    uint32_t nr_max_invalid_pages = 0;
    uint32_t nr_cur_invalid_pages;
@@ -38,6 +39,12 @@ struct flash_block_t *gc_page_select_victim_greedy(
    //    nr_cur_invalid_pages =
    //        ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block].nr_invalid_pages;
 
+   //    if (ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block].is_reserved_block == 1)
+   //       continue;
+
+   //    if (&(ptr_ssd->list_buses[gc_target_bus].list_chips[gc_target_chip].list_blocks[loop_block]) == ptr_pg_mapping->ptr_active_block)
+   //       continue;
+
    //    if (nr_max_invalid_pages < nr_cur_invalid_pages)
    //    {
    //       nr_max_invalid_pages = nr_cur_invalid_pages;
@@ -48,11 +55,12 @@ struct flash_block_t *gc_page_select_victim_greedy(
    srand(time(NULL));
    loop_block = rand() % ptr_ssd->nr_blocks_per_chip;
    /* Avoid free block to be selected as victim */
-   while (ptr_ssd->list_buses[0].list_chips[0].list_blocks[loop_block].nr_invalid_pages == 0)
+   while (ptr_ssd->list_buses[0].list_chips[0].list_blocks[loop_block].nr_invalid_pages == 0 || ptr_ssd->list_buses[0].list_chips[0].list_blocks[loop_block].is_reserved_block == 1)
    {
       loop_block = rand() % ptr_ssd->nr_blocks_per_chip;
    }
    ptr_victim_block = &ptr_ssd->list_buses[0].list_chips[0].list_blocks[loop_block];
+
    /* TODO: need a way to handle such a case more nicely */
    if (ptr_victim_block == NULL)
    {
@@ -111,7 +119,6 @@ int32_t gc_page_trigger_gc_lab(
 
    // (4) copy flash pages from the victim block to the gc block
    loop_page_victim = 0;
-   printf("start cleaning\n");
 
    while (loop_page_victim < ptr_ssd->nr_pages_per_block)
    {
@@ -119,7 +126,6 @@ int32_t gc_page_trigger_gc_lab(
       uint32_t vnum = ptr_chunk_table->ptr_ch_table[physical_page_address / 32].valid_page_count;
       uint32_t ppnum = ptr_chunk_table->ptr_ch_table[physical_page_address / 32].nr_physical_pages;
       uint32_t comp_flag = ptr_chunk_table->ptr_ch_table[physical_page_address / 32].compress_indicator;
-   printf("start cleaning 1\n");
 
       if (comp_flag != COMP_INIT)
       {
@@ -145,7 +151,7 @@ int32_t gc_page_trigger_gc_lab(
                {
                   header_data = -1;
                   memcpy(&header_data, temp_buff2 + i * sizeof(int32_t), sizeof(int32_t));
-                  printf("header : %d\n", header_data);
+               //   printf("header : %d\n", header_data);
                   if (page_mapping_get_mapped_physical_page_address(ptr_ftl_context, header_data, &gc_target_bus, &gc_target_chip, &ptr_victim_block->no_block, &loop_page_victim) == -1)
                   {
                      printf("chunk page_mapping_get_mapped_physical_page_address ERROR\n");
@@ -292,7 +298,7 @@ void blueftl_gc_write(
             /* mapping 정보 수정 -> loop 4번 */
             for (i = 0; i < CHUNK_SIZE; i++)
             {
-               printf("3.0 %d\n", cache_gc_write_buff.lpa_arr[i]);
+               printf("3.0 %d\n", write_cnt);
 
                page_mapping_map_logical_to_physical(ptr_ftl_context, cache_gc_write_buff.lpa_arr[i], ptr_gc_block->no_bus, ptr_gc_block->no_chip, ptr_gc_block->no_block, page_write);
             }
@@ -362,6 +368,36 @@ void blueftl_gc_write(
          printf("6\n");
       }
    } // CHUNK_SIZE 맞춰서 mapping 완료
+
+   for (i = 0; i < counter; i++)
+   {
+      printf("handle leftovers %d\n", page_write);
+      ppnum = 1; // calculate needed page numbers
+
+      target_ppa = ftl_convert_to_physical_page_address(ptr_gc_block->no_bus, ptr_gc_block->no_chip, ptr_gc_block->no_block, page_write);
+      ftl_convert_to_ssd_layout(target_ppa, &bus, &chip, &block, &page);
+
+      blueftl_user_vdevice_page_write(
+          ptr_vdevice,
+          bus, chip, block, page,
+          FLASH_PAGE_SIZE,
+          (char *)&cache_gc_write_buff.buff[i * FLASH_PAGE_SIZE]);
+
+      /* mapping 정보 수정 -> loop 4번 */
+      page_mapping_map_logical_to_physical(ptr_ftl_context, cache_gc_write_buff.lpa_arr[i], bus, chip, block, page);
+
+      ptr_gc_block->nr_free_pages--;
+
+      ptr_gc_block->list_pages[page + i].page_status = PAGE_STATUS_VALID;
+      ptr_gc_block->list_pages[page + i].no_logical_page_addr = cache_gc_write_buff.lpa_arr[i];
+
+      /* Data chunk table entry 삽입 */
+      ptr_chunk_table->ptr_ch_table[target_ppa / 32].compress_indicator = COMP_FALSE;
+      ptr_chunk_table->ptr_ch_table[target_ppa / 32].nr_physical_pages = ppnum;
+      ptr_chunk_table->ptr_ch_table[target_ppa / 32].valid_page_count = 1;
+
+      page_write++;
+   }
 
    printf("7\n");
    free(gc_write_buff);
