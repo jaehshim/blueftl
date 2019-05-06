@@ -201,7 +201,7 @@ void blueftl_compressed_page_write(
             /* ppnum개 만큼의 연속된 page 요청 */
             if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
             {
-                printf("call gc\n");
+                printf("\ncall gc\n");
                 gc_page_trigger_gc_lab(ptr_ftl_context, ptr_pg_mapping->ru_bus, ptr_pg_mapping->ptr_ru_chips[ptr_pg_mapping->ru_bus]);
                 printf("finished gc\n");
                 if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
@@ -251,6 +251,7 @@ void blueftl_compressed_page_write(
                     }
                 }
             }
+
             /* mapping 정보 수정 -> loop 4번 */
             for (i = 0; i < CHUNK_SIZE; i++)
             {
@@ -284,7 +285,7 @@ void blueftl_compressed_page_write(
                 /* ppnum개 만큼의 연속된 page 요청 */
                 if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
                 {
-                //    printf("call gc\n");
+                    printf("\ncall gc\n");
                     gc_page_trigger_gc_lab(ptr_ftl_context, ptr_pg_mapping->ru_bus, ptr_pg_mapping->ptr_ru_chips[ptr_pg_mapping->ru_bus]);
                     if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
                         printf("something wrong in gc\n");
