@@ -40,7 +40,6 @@ uint32_t init_chunk_table(struct ftl_context_t *ptr_ftl_context)
     if ((ptr_chunk_table->ptr_ch_table = (struct chunk_entry_t *)malloc(ptr_chunk_table->nr_chunk_table_entries * sizeof(struct chunk_entry_t))) == NULL)
     {
         printf("blueftl_compress_rw: failed to allocate the memory for ptr_chunk_table\n");
-        exit(1);
     }
 
     /* init the chunk table  */
@@ -101,12 +100,6 @@ void blueftl_compressed_page_read(
     memset(temp_buff1, 0, sizeof(struct rw_buffer_t));
     memset(temp_buff2, 0, sizeof(struct rw_buffer_t));
 
-    if (ppnum == 0)
-    {
-        printf("Wrong ppnum!!\n");
-        exit(1);
-    }
-
     for (i = 0; i < ppnum; i++)
     {
         blueftl_user_vdevice_page_read(
@@ -134,12 +127,6 @@ void blueftl_compressed_page_read(
     else
     { // 일반 page mapping data
         memcpy(page_data, temp_buff1, FLASH_PAGE_SIZE);
-    }
-
-    if (flag == 0)
-    {
-        printf("Invalid LPA Request!!\n");
-        exit(1);
     }
 
     free(temp_buff1);
@@ -201,25 +188,13 @@ void blueftl_compressed_page_write(
             /* ppnum개 만큼의 연속된 page 요청 */
             if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
             {
-                printf("\ncall gc\n");
                 gc_page_trigger_gc_lab(ptr_ftl_context, ptr_pg_mapping->ru_bus, ptr_pg_mapping->ptr_ru_chips[ptr_pg_mapping->ru_bus]);
-                printf("finished gc\n");
                 if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
                     printf("something wrong in gc\n");
             } // target_ppa에 연속된 free physical_page의 시작 주소 가져옴
 
             /* ppnum개의 연속된 page vdevice_write */
             ftl_convert_to_ssd_layout(target_ppa, &bus, &chip, &block, &page); // ppa를 bus,chip,block,page로 바꿔줌
-
-            // for (i = 0; i < CHUNK_SIZE; i++)
-            // {
-            //     memcpy(&header, write_buff + i * sizeof(int32_t), sizeof(int32_t));
-            // //    printf("%d %d\n", cache_write_buff.lpa_arr[i], header);
-            //     if (is_valid_address_range(ptr_ftl_context, header) != 1) {
-            //         printf("Invalid lpa while writing in rw\n");
-            //         exit(1);
-            //     }
-            // }
 
             for (i = 0; i < ppnum; i++)
             {
@@ -285,7 +260,6 @@ void blueftl_compressed_page_write(
                 /* ppnum개 만큼의 연속된 page 요청 */
                 if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
                 {
-                    printf("\ncall gc\n");
                     gc_page_trigger_gc_lab(ptr_ftl_context, ptr_pg_mapping->ru_bus, ptr_pg_mapping->ptr_ru_chips[ptr_pg_mapping->ru_bus]);
                     if ((target_ppa = get_free_physical_pages(ptr_ftl_context, ppnum)) == -1)
                         printf("something wrong in gc\n");
@@ -302,7 +276,6 @@ void blueftl_compressed_page_write(
 
                 if (is_update[i] == UPDATE)
                 {
-                //    printf("SINGLE is update %d\n", cache_write_buff.lpa_arr[i]);
                     page_mapping_get_mapped_physical_page_address(ptr_ftl_context, cache_write_buff.lpa_arr[i], &update_bus, &update_chip, &update_block, &update_page);
                     uint32_t physical_page_address = ftl_convert_to_physical_page_address(update_bus, update_chip, update_block, update_page);
                     uint32_t temp_ppnum = ptr_chunk_table->ptr_ch_table[physical_page_address/32].nr_physical_pages;
@@ -323,7 +296,6 @@ void blueftl_compressed_page_write(
 
                 ptr_block = &(ptr_ssd->list_buses[bus].list_chips[chip].list_blocks[block]);
 
-                //ptr_block->nr_valid_pages++;
                 ptr_block->nr_free_pages--;
 
                 ptr_block->list_pages[page].page_status = PAGE_STATUS_VALID;
@@ -352,11 +324,10 @@ void translate_write_buffer()
 { // cache_write_buffer에 담아놨던 정보들 write_buffer로 옮기기
     uint8_t *tmp_ptr = write_buff;
     int i;
-    //    printf("Serialize\n");
+
     for (i = 0; i < CHUNK_SIZE; i++)
     {
         memcpy(tmp_ptr, &(cache_write_buff.lpa_arr[i]), sizeof(int32_t));
-        // printf("%d %d\n", cache_write_buff.lpa_arr[i],*((int32_t)tmp_ptr);
         tmp_ptr += sizeof(uint32_t);
     }
 
