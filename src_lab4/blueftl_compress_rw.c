@@ -220,7 +220,7 @@ void blueftl_compressed_page_write(
 
                     for (j = 0; j < temp_ppnum; j++) // 해당 chunk 전체에 대해 valid page count 1씩 감소
                     {
-                        if (--ptr_chunk_table->ptr_ch_table[(physical_page_address + j)/32].valid_page_count < 0)
+                        if (--ptr_chunk_table->ptr_ch_table[(physical_page_address/32)+j].valid_page_count < 0)
                             printf("valid page count negative\n");
                         // valid page count 1감소, 0보다작으면 오류메시지
                     }
@@ -285,7 +285,7 @@ void blueftl_compressed_page_write(
 
                     for (j = 0; j < temp_ppnum; j++) // 해당 chunk 전체에 대해 valid page count 1씩 감소
                     {
-                        if (--ptr_chunk_table->ptr_ch_table[(physical_page_address + j)/32].valid_page_count < 0)
+                        if (--ptr_chunk_table->ptr_ch_table[(physical_page_address/32)+j].valid_page_count < 0)
                             printf("valid page count negative\n");
                         // valid page count 1감소, 0보다작으면 오류메시지
                     }
