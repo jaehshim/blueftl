@@ -21,7 +21,6 @@
 struct rw_buffer_t
 {
     int32_t lpa_arr[CHUNK_SIZE];
-    int32_t lpa_arr2[CHUNK_SIZE];
     uint8_t buff[FLASH_PAGE_SIZE * CHUNK_SIZE];
 };
 
